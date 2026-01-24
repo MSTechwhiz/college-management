@@ -13,6 +13,15 @@ public class FeeStructure {
     private int semester;
     private double amount;
 
+    private String feeType; // Tuition, Exam, Bus, Hostel, Other
+    private java.util.Map<String, Double> breakdown;
+
+    public String getFeeType() { return feeType; }
+    public void setFeeType(String feeType) { this.feeType = feeType; }
+
+    public java.util.Map<String, Double> getBreakdown() { return breakdown; }
+    public void setBreakdown(java.util.Map<String, Double> breakdown) { this.breakdown = breakdown; }
+
     public FeeStructure() {}
 
     // Getters and Setters

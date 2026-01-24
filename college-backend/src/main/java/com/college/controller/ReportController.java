@@ -21,14 +21,14 @@ public class ReportController {
 
     @PostMapping
     @PreAuthorize("hasRole('STUDENT')")
-    public ResponseEntity<?> createReport(@RequestBody Report report, Authentication authentication) {
-        try {
-            // This would need to be fetched from user/student relationship
-            // For now, assuming studentId is passed or extracted
-            return ResponseEntity.ok(reportService.createReport(report, report.getStudentId()));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+    public ResponseEntity<Report> createReport(@RequestBody Report report, Authentication authentication) {
+        return ResponseEntity.ok(reportService.createReportForUser(report, authentication.getName()));
+    }
+
+    @GetMapping("/my-reports")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<List<Report>> getMyReports(Authentication authentication) {
+        return ResponseEntity.ok(reportService.getReportsForUser(authentication.getName()));
     }
 
     @GetMapping
@@ -51,21 +51,15 @@ public class ReportController {
 
     @PostMapping("/{reportId}/assign")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> assignToHOD(@PathVariable String reportId, @RequestBody Map<String, String> request) {
-        try {
-            return ResponseEntity.ok(reportService.assignToHOD(reportId, request.get("hodId")));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+    public ResponseEntity<Report> assignToHOD(@PathVariable String reportId, @RequestBody Map<String, String> request) {
+        return ResponseEntity.ok(reportService.assignToHOD(reportId, request.get("hodId")));
     }
 
     @PostMapping("/{reportId}/resolve")
     @PreAuthorize("hasAnyRole('ADMIN', 'FACULTY')")
-    public ResponseEntity<?> resolveReport(@PathVariable String reportId, @RequestBody Map<String, String> request, Authentication authentication) {
-        try {
-            return ResponseEntity.ok(reportService.resolveReport(reportId, authentication.getName(), request.get("remarks")));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+    public ResponseEntity<Report> resolveReport(@PathVariable String reportId, @RequestBody Map<String, String> request,
+            Authentication authentication) {
+        return ResponseEntity
+                .ok(reportService.resolveReport(reportId, authentication.getName(), request.get("remarks")));
     }
 }

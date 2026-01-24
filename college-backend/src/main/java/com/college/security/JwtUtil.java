@@ -15,10 +15,10 @@ import java.util.function.Function;
 
 @Component
 public class JwtUtil {
-    
+
     @Value("${jwt.secret}")
     private String secret;
-    
+
     @Value("${jwt.expiration}")
     private Long expiration;
 
@@ -62,10 +62,18 @@ public class JwtUtil {
     public String generateToken(String username, String role, String department) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("role", role);
+        claims.put("tokenType", "access");
         if (department != null) {
             claims.put("department", department);
         }
         return createToken(claims, username);
+    }
+
+    /**
+     * Extract token type to differentiate between access and refresh tokens
+     */
+    public String extractTokenType(String token) {
+        return extractClaim(token, claims -> claims.get("tokenType", String.class));
     }
 
     private String createToken(Map<String, Object> claims, String subject) {

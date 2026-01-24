@@ -1,13 +1,17 @@
 package com.college.controller;
 
+import com.college.annotation.AuditAction;
 import com.college.model.Announcement;
 import com.college.security.JwtUtil;
 import com.college.service.AnnouncementService;
+import com.college.service.AuditLogService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -22,6 +26,9 @@ public class AnnouncementController {
     @Autowired
     private JwtUtil jwtUtil;
 
+    @Autowired
+    private AuditLogService auditLogService;
+
     @GetMapping("/public")
     public ResponseEntity<List<Announcement>> getPublicAnnouncements() {
         return ResponseEntity.ok(announcementService.getPublicAnnouncements());
@@ -29,14 +36,43 @@ public class AnnouncementController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'FACULTY')")
-    public ResponseEntity<Announcement> createAnnouncement(@RequestBody Announcement announcement, Authentication authentication) {
-        return ResponseEntity.ok(announcementService.createAnnouncement(announcement, authentication.getName()));
+    @AuditAction(action = "CREATE_ANNOUNCEMENT", resource = "Announcement")
+    public ResponseEntity<Announcement> createAnnouncement(@RequestBody Announcement announcement,
+            Authentication authentication) {
+        Announcement created = announcementService.createAnnouncement(announcement, authentication.getName());
+        String authRole = authentication.getAuthorities().stream().findFirst()
+                .map(a -> a.getAuthority().replace("ROLE_", "")).orElse("UNKNOWN");
+        auditLogService.log(authentication.getName(), authRole, "CREATE_ANNOUNCEMENT", created.getId(), null);
+        return ResponseEntity.ok(created);
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Announcement>> getAllAnnouncements() {
-        return ResponseEntity.ok(announcementService.getAllAnnouncements());
+    @PreAuthorize("hasAnyRole('ADMIN', 'STUDENT', 'FACULTY')")
+    public ResponseEntity<List<Announcement>> getAllAnnouncements(Authentication authentication,
+            @RequestHeader(value = "Authorization", required = false) String token) {
+        String role = authentication.getAuthorities().stream().findFirst()
+                .map(a -> a.getAuthority().replace("ROLE_", "")).orElse("");
+
+        if ("ADMIN".equals(role)) {
+            return ResponseEntity.ok(announcementService.getAllAnnouncements());
+        }
+
+        if (token == null || token.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authorization token is required");
+        }
+
+        String department = jwtUtil.extractDepartment(token.substring(7));
+        if (department == null || department.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Department information not found in token");
+        }
+
+        if ("STUDENT".equals(role)) {
+            return ResponseEntity.ok(announcementService.getAnnouncementsForStudent(department));
+        } else if ("FACULTY".equals(role)) {
+            return ResponseEntity.ok(announcementService.getAnnouncementsForFaculty(department));
+        }
+
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid role");
     }
 
     @GetMapping("/student")
@@ -51,5 +87,28 @@ public class AnnouncementController {
     public ResponseEntity<List<Announcement>> getFacultyAnnouncements(@RequestHeader("Authorization") String token) {
         String department = jwtUtil.extractDepartment(token.substring(7));
         return ResponseEntity.ok(announcementService.getAnnouncementsForFaculty(department));
+    }
+
+    @PutMapping("/{id}")
+    @AuditAction(action = "UPDATE_ANNOUNCEMENT", resource = "Announcement", targetIdExpression = "#id")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Announcement> updateAnnouncement(@PathVariable String id,
+            @RequestBody Announcement announcement, Authentication authentication) {
+        Announcement updated = announcementService.updateAnnouncement(id, announcement);
+        String authRole = authentication.getAuthorities().stream().findFirst()
+                .map(a -> a.getAuthority().replace("ROLE_", "")).orElse("UNKNOWN");
+        auditLogService.log(authentication.getName(), authRole, "UPDATE_ANNOUNCEMENT", id, null);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/{id}")
+    @AuditAction(action = "DELETE_ANNOUNCEMENT", resource = "Announcement", targetIdExpression = "#id")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> deleteAnnouncement(@PathVariable String id, Authentication authentication) {
+        announcementService.deleteAnnouncement(id);
+        String authRole = authentication.getAuthorities().stream().findFirst()
+                .map(a -> a.getAuthority().replace("ROLE_", "")).orElse("UNKNOWN");
+        auditLogService.log(authentication.getName(), authRole, "DELETE_ANNOUNCEMENT", id, null);
+        return ResponseEntity.ok().build();
     }
 }

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class StudentDashboardService {
@@ -28,12 +29,11 @@ public class StudentDashboardService {
     private MarkRepository markRepository;
 
     public Map<String, Object> getStudentDashboard(String username) {
-        // Find user by username, then find student by userId
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        
-        Student student = studentRepository.findByUserId(user.getId())
-                .orElseThrow(() -> new RuntimeException("Student not found for user: " + username));
+        Optional<Student> byUser = studentRepository.findByUserId(user.getId());
+        Student student = byUser.orElseGet(() -> studentRepository.findByRegisterNumber(username)
+                .orElseThrow(() -> new RuntimeException("Student not found for user: " + username)));
 
         List<Fee> fees = feeRepository.findByStudentId(student.getId());
         List<Attendance> attendance = attendanceRepository.findByStudentId(student.getId());

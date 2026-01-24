@@ -32,6 +32,24 @@ public class MarkController {
         }
     }
 
+    @PostMapping("/bulk")
+    @PreAuthorize("hasRole('FACULTY')")
+    public ResponseEntity<?> createOrUpdateMarksBulk(@RequestBody List<Mark> marks, @RequestHeader("Authorization") String token) {
+        try {
+            String facultyId = jwtUtil.extractUsername(token.substring(7));
+            markService.createOrUpdateMarksBulk(marks, facultyId);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/subject/{subject}")
+    @PreAuthorize("hasRole('FACULTY')")
+    public ResponseEntity<List<Mark>> getMarksBySubject(@PathVariable String subject) {
+        return ResponseEntity.ok(markService.getMarksBySubject(subject));
+    }
+
     @GetMapping("/student/{studentId}")
     @PreAuthorize("hasAnyRole('FACULTY', 'STUDENT')")
     public ResponseEntity<List<Mark>> getMarksByStudent(@PathVariable String studentId) {

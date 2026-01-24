@@ -13,4 +13,5 @@ public interface FacultyRepository extends MongoRepository<Faculty, String> {
     List<Faculty> findByDepartment(String department);
     Optional<Faculty> findByUserId(String userId);
     boolean existsByFacultyId(String facultyId);
+    List<Faculty> findByNameContainingIgnoreCaseOrFacultyIdContainingIgnoreCase(String name, String facultyId);
 }

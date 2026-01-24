@@ -2,6 +2,7 @@ package com.college.dto;
 
 public class LoginResponse {
     private String token;
+    private String refreshToken;
     private String role;
     private String username;
     private String department;
@@ -11,6 +12,8 @@ public class LoginResponse {
 
     public String getToken() { return token; }
     public void setToken(String token) { this.token = token; }
+    public String getRefreshToken() { return refreshToken; }
+    public void setRefreshToken(String refreshToken) { this.refreshToken = refreshToken; }
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }

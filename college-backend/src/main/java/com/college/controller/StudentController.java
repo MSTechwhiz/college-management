@@ -1,5 +1,6 @@
 package com.college.controller;
 
+import com.college.annotation.AuditAction;
 import com.college.model.Student;
 import com.college.service.StudentService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,7 @@ public class StudentController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
+    @AuditAction(action = "CREATE_STUDENT", resource = "Student")
     public ResponseEntity<?> createStudent(@RequestBody Student student) {
         try {
             return ResponseEntity.ok(studentService.createStudent(student));
@@ -49,6 +51,7 @@ public class StudentController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @AuditAction(action = "UPDATE_STUDENT", resource = "Student", targetIdExpression = "#id")
     public ResponseEntity<?> updateStudent(@PathVariable String id, @RequestBody Student student) {
         try {
             return ResponseEntity.ok(studentService.updateStudent(id, student));
@@ -58,6 +61,7 @@ public class StudentController {
     }
 
     @DeleteMapping("/{id}")
+    @AuditAction(action = "DELETE_STUDENT", resource = "Student", targetIdExpression = "#id")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteStudent(@PathVariable String id) {
         try {
@@ -69,6 +73,7 @@ public class StudentController {
     }
 
     @PostMapping("/bulk-upload")
+    @AuditAction(action = "BULK_UPLOAD_STUDENTS", resource = "Student")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> bulkUpload(@RequestParam("file") MultipartFile file) {
         try {

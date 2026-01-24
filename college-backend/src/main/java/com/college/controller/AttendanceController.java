@@ -24,30 +24,24 @@ public class AttendanceController {
 
     @PostMapping
     @PreAuthorize("hasRole('FACULTY')")
-    public ResponseEntity<?> markAttendance(@RequestBody Attendance attendance, @RequestHeader("Authorization") String token) {
-        try {
-            String facultyId = jwtUtil.extractUsername(token.substring(7));
-            return ResponseEntity.ok(attendanceService.markAttendance(attendance, facultyId));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+    public ResponseEntity<Attendance> markAttendance(@RequestBody Attendance attendance,
+            @RequestHeader("Authorization") String token) {
+        String facultyId = jwtUtil.extractUsername(token.substring(7));
+        return ResponseEntity.ok(attendanceService.markAttendance(attendance, facultyId));
     }
 
     @PostMapping("/bulk")
     @PreAuthorize("hasRole('FACULTY')")
-    public ResponseEntity<?> markBulkAttendance(@RequestBody Map<String, Object> request, @RequestHeader("Authorization") String token) {
-        try {
-            String facultyId = jwtUtil.extractUsername(token.substring(7));
-            String subject = request.get("subject").toString();
-            String date = request.get("date").toString();
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> attendanceList = (List<Map<String, Object>>) request.get("attendanceList");
-            
-            attendanceService.markBulkAttendance(subject, date, attendanceList, facultyId);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+    public ResponseEntity<?> markBulkAttendance(@RequestBody Map<String, Object> request,
+            @RequestHeader("Authorization") String token) {
+        String facultyId = jwtUtil.extractUsername(token.substring(7));
+        String subject = request.get("subject").toString();
+        String date = request.get("date").toString();
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> attendanceList = (List<Map<String, Object>>) request.get("attendanceList");
+
+        attendanceService.markBulkAttendance(subject, date, attendanceList, facultyId);
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/student/{studentId}")
@@ -58,7 +52,8 @@ public class AttendanceController {
 
     @GetMapping("/percentage/{studentId}/{subject}")
     @PreAuthorize("hasAnyRole('FACULTY', 'STUDENT')")
-    public ResponseEntity<Double> getAttendancePercentage(@PathVariable String studentId, @PathVariable String subject) {
+    public ResponseEntity<Double> getAttendancePercentage(@PathVariable String studentId,
+            @PathVariable String subject) {
         return ResponseEntity.ok(attendanceService.getAttendancePercentage(studentId, subject));
     }
 }

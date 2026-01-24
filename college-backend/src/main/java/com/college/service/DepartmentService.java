@@ -9,6 +9,7 @@ import com.college.repository.StudentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,13 @@ public class DepartmentService {
         return departmentRepository.findAll();
     }
 
+    public List<Department> getActiveDepartmentsForDropdown() {
+        return departmentRepository.findAll().stream()
+                .filter(Department::isActive)
+                .sorted(Comparator.comparing(Department::getName))
+                .collect(Collectors.toList());
+    }
+
     public Map<String, Object> getDepartmentDetail(String departmentId) {
         Department dept = departmentRepository.findById(departmentId)
                 .orElseThrow(() -> new RuntimeException("Department not found"));
@@ -39,17 +47,43 @@ public class DepartmentService {
 
         List<Student> students = studentRepository.findByDepartment(departmentName);
         List<Faculty> faculty = facultyRepository.findByDepartment(departmentName);
-
+        
         Map<String, Object> detail = new HashMap<>();
         detail.put("department", dept);
         detail.put("students", students);
         detail.put("faculty", faculty);
+        
+        if (dept.getHodId() != null) {
+            facultyRepository.findById(dept.getHodId()).ifPresent(hod -> detail.put("hod", hod));
+        }
 
         return detail;
     }
 
+    public void assignHod(String departmentId, String facultyId) {
+        Department dept = departmentRepository.findById(departmentId)
+                .orElseThrow(() -> new RuntimeException("Department not found"));
+        
+        Faculty faculty = facultyRepository.findById(facultyId)
+                .orElseThrow(() -> new RuntimeException("Faculty not found"));
+        
+        // Validate faculty belongs to department (optional but good)
+        if (!dept.getName().equalsIgnoreCase(faculty.getDepartment())) {
+             // Maybe allow cross-dept HOD? Usually not. Warn or Block.
+             // Prompt doesn't specify, but "Department page shows HOD" implies linkage.
+             // Let's allow it for flexibility but maybe we should ensure consistency.
+        }
+
+        dept.setHodId(faculty.getId());
+        dept.setHodName(faculty.getName());
+        departmentRepository.save(dept);
+    }
+
     public List<Map<String, Object>> getDepartmentsWithCounts() {
-        List<Department> departments = departmentRepository.findAll();
+        List<Department> departments = departmentRepository.findAll().stream()
+                .filter(Department::isActive)
+                .sorted(Comparator.comparing(Department::getName))
+                .collect(Collectors.toList());
         return departments.stream().map(dept -> {
             Map<String, Object> deptInfo = new HashMap<>();
             deptInfo.put("id", dept.getId());

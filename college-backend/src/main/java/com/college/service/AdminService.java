@@ -41,4 +41,18 @@ public class AdminService {
         
         return counts;
     }
+
+    public Map<String, Object> globalSearch(String query) {
+        Map<String, Object> results = new HashMap<>();
+        
+        if (query == null || query.trim().isEmpty()) {
+            return results;
+        }
+        
+        results.put("students", studentRepository.findByFullNameContainingIgnoreCaseOrRegisterNumberContainingIgnoreCase(query, query));
+        results.put("faculty", facultyRepository.findByNameContainingIgnoreCaseOrFacultyIdContainingIgnoreCase(query, query));
+        results.put("departments", departmentRepository.findByNameContainingIgnoreCase(query));
+        
+        return results;
+    }
 }

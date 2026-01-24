@@ -12,4 +12,7 @@ public interface AttendanceRepository extends MongoRepository<Attendance, String
     List<Attendance> findByStudentIdAndSubject(String studentId, String subject);
     List<Attendance> findBySubjectAndDate(String subject, String date);
     boolean existsBySubjectAndDateAndStudentId(String subject, String date, String studentId);
+    boolean existsBySubjectAndDateAndStudentIdAndSemester(String subject, String date, String studentId, int semester);
+    List<Attendance> findByStudentIdAndSemester(String studentId, int semester);
+    List<Attendance> findByStudentIdAndSubjectAndSemester(String studentId, String subject, int semester);
 }

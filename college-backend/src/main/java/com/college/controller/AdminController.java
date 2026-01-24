@@ -21,4 +21,9 @@ public class AdminController {
     public ResponseEntity<Map<String, Long>> getDashboardCounts() {
         return ResponseEntity.ok(adminService.getDashboardCounts());
     }
+
+    @GetMapping("/search")
+    public ResponseEntity<Map<String, Object>> search(@RequestParam String q) {
+        return ResponseEntity.ok(adminService.globalSearch(q));
+    }
 }
