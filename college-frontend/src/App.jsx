@@ -1,7 +1,9 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import AdminLayout from './components/AdminLayout'
 import LoginPage from './pages/LoginPage'
+import LandingPage from './pages/LandingPage'
 import DepartmentSelect from './pages/DepartmentSelect'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import Departments from './pages/admin/Departments'
@@ -25,12 +27,19 @@ import AnnouncementsView from './pages/student/AnnouncementsView'
 import ReportsCreate from './pages/student/ReportsCreate'
 import NotAuthorized from './pages/NotAuthorized'
 import ChatBot from './components/ChatBot'
+import PrincipalDashboard from './pages/principal/PrincipalDashboard'
 
 function App() {
+  if (import.meta.env.MODE === 'production') {
+    ['log', 'debug', 'warn'].forEach(k => {
+      try { console[k] = () => {}; } catch {}
+    })
+  }
   return (
     <AuthProvider>
       <Router>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/select-department" element={
             <ProtectedRoute>
@@ -39,56 +48,22 @@ function App() {
           } />
           
           {/* Admin Routes */}
-          <Route path="/admin/dashboard" element={
+          <Route element={
             <ProtectedRoute role="ADMIN">
-              <AdminDashboard />
+              <AdminLayout />
             </ProtectedRoute>
-          } />
-          <Route path="/admin/departments" element={
-            <ProtectedRoute role="ADMIN">
-              <Departments />
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/departments/:id" element={
-            <ProtectedRoute role="ADMIN">
-              <DepartmentDetail />
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/students" element={
-            <ProtectedRoute role="ADMIN">
-              <Students />
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/students/:registerNumber" element={
-            <ProtectedRoute role="ADMIN">
-              <StudentDetail />
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/faculty" element={
-            <ProtectedRoute role="ADMIN">
-              <Faculty />
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/fees" element={
-            <ProtectedRoute role="ADMIN">
-              <Fees />
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/admissions" element={
-            <ProtectedRoute role="ADMIN">
-              <Admissions />
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/announcements" element={
-            <ProtectedRoute role="ADMIN">
-              <Announcements />
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/reports" element={
-            <ProtectedRoute role="ADMIN">
-              <Reports />
-            </ProtectedRoute>
-          } />
+          }>
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/departments" element={<Departments />} />
+            <Route path="/admin/departments/:id" element={<DepartmentDetail />} />
+            <Route path="/admin/students" element={<Students />} />
+            <Route path="/admin/students/:registerNumber" element={<StudentDetail />} />
+            <Route path="/admin/faculty" element={<Faculty />} />
+            <Route path="/admin/fees" element={<Fees />} />
+            <Route path="/admin/admissions" element={<Admissions />} />
+            <Route path="/admin/announcements" element={<Announcements />} />
+            <Route path="/admin/reports" element={<Reports />} />
+          </Route>
           
           {/* Faculty Routes */}
           <Route path="/faculty/dashboard" element={
@@ -144,8 +119,14 @@ function App() {
             </ProtectedRoute>
           } />
           
+          {/* Principal Routes */}
+          <Route path="/principal/dashboard" element={
+            <ProtectedRoute role="PRINCIPAL">
+              <PrincipalDashboard />
+            </ProtectedRoute>
+          } />
+          
           <Route path="/not-authorized" element={<NotAuthorized />} />
-          <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
         <ChatBot />
       </Router>

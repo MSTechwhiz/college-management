@@ -43,10 +43,10 @@ public class DepartmentController {
     
     @PutMapping("/{id}/hod")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> assignHod(@PathVariable String id, @RequestBody Map<String, String> body, Authentication authentication) {
+    public ResponseEntity<Void> assignHod(@PathVariable String id, @RequestBody Map<String, String> body, Authentication authentication) {
         String facultyId = body.get("facultyId");
         if (facultyId == null) {
-            return ResponseEntity.badRequest().body("Faculty ID is required");
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Faculty ID is required");
         }
         departmentService.assignHod(id, facultyId);
         

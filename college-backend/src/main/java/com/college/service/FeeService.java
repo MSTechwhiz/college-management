@@ -46,6 +46,20 @@ public class FeeService {
         return feeRepository.findByStudentId(studentId);
     }
 
+    public List<Fee> getPendingFeesByStudent(String studentId) {
+        // Return fees with PENDING or PARTIAL status (anything not fully PAID)
+        List<Fee> pending = feeRepository.findByStudentIdAndStatus(studentId, "PENDING");
+        List<Fee> partial = feeRepository.findByStudentIdAndStatus(studentId, "PARTIAL");
+        java.util.List<Fee> result = new java.util.ArrayList<>(pending);
+        result.addAll(partial);
+        return result;
+    }
+
+    public List<Fee> getPaidFeesByStudent(String studentId) {
+        // Return fees with PAID status only
+        return feeRepository.findByStudentIdAndStatus(studentId, "PAID");
+    }
+
     @Transactional
     public FeeStructure createFeeStructure(FeeStructure feeStructure) {
         if (feeStructure.getFeeType() != null && !VALID_FEE_TYPES.contains(feeStructure.getFeeType())) {
@@ -57,6 +71,10 @@ public class FeeService {
 
     public List<FeeStructure> getAllFeeStructures() {
         return feeStructureRepository.findAll();
+    }
+
+    public void deleteFeeStructure(String id) {
+        feeStructureRepository.deleteById(id);
     }
 
     @Transactional
@@ -179,8 +197,11 @@ public class FeeService {
             } else {
                 fee = new Fee();
                 fee.setStudentId(studentId);
+                fee.setStudentName(student.getFullName());
                 fee.setRegisterNumber(student.getRegisterNumber());
                 fee.setDepartment(student.getDepartment());
+                fee.setBatch(student.getBatch());
+                fee.setAcademicYear(student.getAcademicYear());
                 fee.setYear(year);
                 fee.setSemester(semester);
                 fee.setFeeType(feeType);
@@ -199,8 +220,8 @@ public class FeeService {
 
                 fee.setTotalAmount(finalAmount);
 
-                // Initialize fee in CREATED state (will transition to PENDING on first access)
-                fee.setStatus(FeeStatus.CREATED.toLegacyString());
+                // Initialize fee in PENDING state (clear distinction from PAID/PARTIAL)
+                fee.setStatus(FeeStatus.PENDING.toLegacyString());
                 fee.setPendingAmount(feeStateService.calculatePendingAmount(finalAmount, 0.0));
                 fee = feeRepository.save(fee);
             }
@@ -211,7 +232,7 @@ public class FeeService {
 
     // Removed unused createOrUpdateFee (replaced by generateFees)
 
-    public List<Fee> searchFees(String keyword, String department, String feeType) {
+    public List<Fee> searchFees(String keyword, String department, String feeType, String status) {
         // Validate feeType if provided
         if (feeType != null && !feeType.isEmpty() && !VALID_FEE_TYPES.contains(feeType)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -232,6 +253,11 @@ public class FeeService {
         // Filter by fee type if specified
         if (feeType != null && !feeType.isEmpty()) {
             stream = stream.filter(f -> f.getFeeType() != null && f.getFeeType().equalsIgnoreCase(feeType));
+        }
+
+        // Filter by status if specified
+        if (status != null && !status.isEmpty()) {
+            stream = stream.filter(f -> f.getStatus() != null && f.getStatus().equalsIgnoreCase(status));
         }
 
         // Search by keyword (student name, register number, or department)
@@ -313,8 +339,90 @@ public class FeeService {
         return summary;
     }
 
+    public List<Fee> getPendingFeesByDepartment(String department) {
+        // Return fees from department with PENDING or PARTIAL status
+        List<Fee> allFees = feeRepository.findByDepartment(department);
+        return allFees.stream()
+                .filter(f -> f.getStatus() != null &&
+                        (f.getStatus().equalsIgnoreCase("PENDING") ||
+                                f.getStatus().equalsIgnoreCase("PARTIAL")))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    public List<Fee> getPaidFeesByDepartment(String department) {
+        // Return fees from department with PAID status only
+        List<Fee> allFees = feeRepository.findByDepartment(department);
+        return allFees.stream()
+                .filter(f -> f.getStatus() != null && f.getStatus().equalsIgnoreCase("PAID"))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    public List<Fee> getFeesByType(String feeType) {
+        // Validate feeType first
+        if (feeType == null || feeType.isEmpty() || !VALID_FEE_TYPES.contains(feeType)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Invalid fee type: " + feeType + ". Valid types: " + String.join(", ", VALID_FEE_TYPES));
+        }
+        return feeRepository.findByFeeType(feeType);
+    }
+
+    public List<PaymentRecord> getStudentPaymentHistory(String studentId) {
+        return paymentLedgerService.getStudentPaymentHistory(studentId);
+    }
+
+    public List<PaymentRecord> getPaymentHistory(String feeId) {
+        return paymentLedgerService.getPaymentHistory(feeId);
+    }
+
     public Fee makePayment(String feeId, double amount, String method, String adminId) {
         return makePaymentWithIdempotency(feeId, amount, method, adminId, null);
+    }
+    
+    public Fee defineInstallmentPlan(String feeId, java.util.List<java.util.Map<String, Object>> items, String adminId) {
+        if (adminId == null || adminId.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admin ID cannot be empty");
+        }
+        Fee fee = feeRepository.findById(feeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Fee not found"));
+        if (fee.getPaidAmount() > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot define installments after payments");
+        }
+        if (items == null || items.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Installment items cannot be empty");
+        }
+        java.util.List<Fee.Installment> plan = new java.util.ArrayList<>();
+        double sum = 0.0;
+        int idx = 0;
+        for (java.util.Map<String, Object> item : items) {
+            Object amountObj = item.get("amount");
+            Object dueObj = item.get("dueDate");
+            if (amountObj == null || dueObj == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Each installment requires amount and dueDate");
+            }
+            double amount = Double.parseDouble(amountObj.toString());
+            feeStateService.validateFeeAmount(amount, "Installment");
+            java.time.LocalDateTime due = java.time.LocalDateTime.parse(dueObj.toString());
+            Fee.Installment inst = new Fee.Installment();
+            inst.setIndex(idx++);
+            inst.setAmount(amount);
+            inst.setPaidAmount(0.0);
+            inst.setDueDate(due);
+            inst.setStatus("PENDING");
+            plan.add(inst);
+            sum += amount;
+        }
+        if (Math.abs(sum - fee.getTotalAmount()) > 0.01) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, String.format(
+                    "Installment total %.2f must equal fee total %.2f", sum, fee.getTotalAmount()));
+        }
+        fee.setInstallments(plan);
+        return feeRepository.save(fee);
+    }
+    
+    public java.util.List<Fee.Installment> getInstallments(String feeId) {
+        Fee fee = feeRepository.findById(feeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Fee not found"));
+        return fee.getInstallments() != null ? fee.getInstallments() : java.util.Collections.emptyList();
     }
 
     /**
@@ -402,6 +510,8 @@ public class FeeService {
         fee.setLastProcessedPaymentId(ledgerRecord.getId());
         fee.setLastProcessedVersion(fee.getLastProcessedVersion() + 1);
         fee.setLastPaymentProcessedAt(LocalDateTime.now());
+        fee.setPaymentDate(LocalDateTime.now());
+        fee.setPaymentMode(method);
 
         // 13. PERSIST FEE
         Fee updatedFee = feeRepository.save(fee);
@@ -409,6 +519,92 @@ public class FeeService {
         // 14. VALIDATE LEDGER CONSISTENCY
         paymentLedgerService.validateLedgerConsistency(updatedFee, updatedFee.getPaidAmount());
 
+        return updatedFee;
+    }
+    
+    public synchronized Fee makeInstallmentPaymentWithIdempotency(String feeId, int installmentIndex, double amount,
+            String method, String adminId, String idempotencyKey) {
+        feeStateService.validateFeeAmount(amount, "Installment Payment");
+        feeStateService.validatePaymentMethod(method);
+        if (adminId == null || adminId.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admin ID cannot be empty");
+        }
+        Fee fee = feeRepository.findById(feeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Fee not found"));
+        if (fee.getInstallments() == null || fee.getInstallments().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No installment plan defined for this fee");
+        }
+        if (installmentIndex < 0 || installmentIndex >= fee.getInstallments().size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid installment index");
+        }
+        Fee.Installment inst = fee.getInstallments().get(installmentIndex);
+        double instPaidBefore = inst.getPaidAmount();
+        double instNewPaid = instPaidBefore + amount;
+        if (instNewPaid > inst.getAmount()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, String.format(
+                    "Payment exceeds installment amount. Max allowed: %.2f, requested: %.2f",
+                    (inst.getAmount() - instPaidBefore), amount));
+        }
+        if (idempotencyKey == null) {
+            idempotencyKey = paymentLedgerService.generateIdempotencyKey(feeId, amount, method);
+        }
+        Optional<PaymentRecord> existingPayment = paymentLedgerService.findByIdempotencyKey(idempotencyKey);
+        if (existingPayment.isPresent()) {
+            return fee;
+        }
+        FeeStatus currentStatus = FeeStatus.fromLegacyString(fee.getStatus());
+        if (!feeStateService.canAcceptPayments(currentStatus)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Cannot accept payments in " + currentStatus.name() + " status");
+        }
+        double balanceBefore = fee.getPaidAmount();
+        double newPaidAmount = balanceBefore + amount;
+        if (newPaidAmount > fee.getTotalAmount()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, String.format(
+                    "Payment would exceed total. Max allowed: %.2f, requested: %.2f",
+                    (fee.getTotalAmount() - balanceBefore), amount));
+        }
+        FeeStatus newStatus = feeStateService.calculateStatus(fee.getTotalAmount(), newPaidAmount);
+        feeStateService.validateStateTransition(currentStatus, newStatus);
+        
+        PaymentRecord ledgerRecord = paymentLedgerService.recordInstallmentPayment(
+                feeId, fee.getStudentId(), fee.getRegisterNumber(), fee.getDepartment(),
+                amount, method, adminId, idempotencyKey,
+                currentStatus, newStatus,
+                balanceBefore, newPaidAmount,
+                installmentIndex);
+        
+        if (fee.getPayments() == null) {
+            fee.setPayments(new java.util.ArrayList<>());
+        }
+        Fee.Payment payment = new Fee.Payment();
+        payment.setAmount(amount);
+        payment.setMethod(method);
+        payment.setAdminId(adminId);
+        payment.setTimestamp(java.time.LocalDateTime.now().toString());
+        fee.getPayments().add(payment);
+        
+        inst.setPaidAmount(instNewPaid);
+        if (instNewPaid == 0) {
+            inst.setStatus("PENDING");
+        } else if (instNewPaid < inst.getAmount()) {
+            inst.setStatus("PARTIAL");
+        } else {
+            inst.setStatus("PAID");
+        }
+        inst.setLastPaymentRecordId(ledgerRecord.getId());
+        
+        fee.setPaidAmount(newPaidAmount);
+        fee.setPendingAmount(feeStateService.calculatePendingAmount(fee.getTotalAmount(), newPaidAmount));
+        fee.setStatus(newStatus.toLegacyString());
+        fee.setLastProcessedPaymentId(ledgerRecord.getId());
+        fee.setLastProcessedVersion(fee.getLastProcessedVersion() + 1);
+        fee.setLastPaymentProcessedAt(java.time.LocalDateTime.now());
+        fee.setPaymentDate(java.time.LocalDateTime.now());
+        fee.setPaymentMode(method);
+        
+        Fee updatedFee = feeRepository.save(fee);
+        paymentLedgerService.validateLedgerConsistency(updatedFee, updatedFee.getPaidAmount());
         return updatedFee;
     }
 
@@ -446,10 +642,19 @@ public class FeeService {
         return feeRepository.save(existing);
     }
 
+    @Transactional
     public void deleteFee(String id) {
-        if (!feeRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Fee not found");
+        Fee fee = feeRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Fee not found"));
+
+        // Safe Delete: Block if payment has been made
+        if (fee.getPaidAmount() > 0 || (fee.getStatus() != null &&
+                (fee.getStatus().equalsIgnoreCase("PAID") || fee.getStatus().equalsIgnoreCase("PARTIAL")))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Cannot delete fee with payments. Fee status: " + fee.getStatus() + ", Paid: "
+                            + fee.getPaidAmount());
         }
+
         feeRepository.deleteById(id);
     }
 }

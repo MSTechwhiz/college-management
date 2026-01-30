@@ -48,6 +48,22 @@ public class PaymentLedgerService {
 
         return paymentRecordRepository.save(record);
     }
+    
+    /**
+     * Record a payment with installment association
+     */
+    public PaymentRecord recordInstallmentPayment(String feeId, String studentId, String registerNumber,
+            String department, double amount, String method,
+            String processedBy, String idempotencyKey,
+            FeeStatus oldStatus, FeeStatus newStatus,
+            double balanceBefore, double balanceAfter,
+            int installmentIndex) {
+        PaymentRecord record = recordPayment(feeId, studentId, registerNumber, department,
+                amount, method, processedBy, idempotencyKey,
+                oldStatus, newStatus, balanceBefore, balanceAfter);
+        record.setInstallmentIndex(installmentIndex);
+        return paymentRecordRepository.save(record);
+    }
 
     /**
      * Check if a payment with this idempotency key was already processed
@@ -130,6 +146,14 @@ public class PaymentLedgerService {
         paymentRecordRepository.save(originalPayment);
 
         return saved;
+    }
+
+    /**
+     * Get payment record by ID
+     */
+    public PaymentRecord getPaymentRecord(String id) {
+        return paymentRecordRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment record not found"));
     }
 
     /**

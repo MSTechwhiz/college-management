@@ -6,6 +6,8 @@ import com.college.model.User;
 import com.college.repository.DepartmentRepository;
 import com.college.repository.FacultyRepository;
 import com.college.repository.UserRepository;
+import com.college.repository.MarkRepository;
+import com.college.repository.AttendanceRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -28,6 +30,12 @@ public class FacultyService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private MarkRepository markRepository;
+
+    @Autowired
+    private AttendanceRepository attendanceRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -158,6 +166,19 @@ public class FacultyService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Faculty not found"));
 
+        // Safe Delete: Check for dependencies
+        if (!markRepository.findByFacultyId(id).isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Cannot delete faculty: Associated mark records exist. Please reassign or delete marks first.");
+        }
+
+        if (!attendanceRepository.findByFacultyId(id).isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Cannot delete faculty: Associated attendance records exist. Please reassign or delete attendance first.");
+        }
+
         // Remove HOD assignment from department if this faculty is HOD (maintain
         // referential integrity)
         String facultyRole = faculty.getRole();
@@ -227,6 +248,34 @@ public class FacultyService {
         departmentRepository.save(dept);
 
         faculty.setRole("HOD");
+        return facultyRepository.save(faculty);
+    }
+
+    @Transactional
+    public Faculty demoteFromHOD(String id) {
+        Faculty faculty = facultyRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Faculty not found"));
+
+        if (!"HOD".equalsIgnoreCase(faculty.getRole())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Faculty is not an HOD");
+        }
+
+        String departmentName = faculty.getDepartment();
+        if (departmentName != null) {
+            Optional<Department> deptOpt = departmentRepository.findByName(departmentName);
+            if (deptOpt.isPresent()) {
+                Department dept = deptOpt.get();
+                if (faculty.getId().equals(dept.getHodId())) {
+                    dept.setHodId(null);
+                    dept.setHodName(null);
+                    departmentRepository.save(dept);
+                }
+            }
+        }
+
+        faculty.setRole("FACULTY");
         return facultyRepository.save(faculty);
     }
 }

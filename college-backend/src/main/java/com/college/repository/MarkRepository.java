@@ -12,4 +12,5 @@ public interface MarkRepository extends MongoRepository<Mark, String> {
     List<Mark> findByStudentId(String studentId);
     Optional<Mark> findByStudentIdAndSubject(String studentId, String subject);
     List<Mark> findBySubject(String subject);
+    List<Mark> findByFacultyId(String facultyId);
 }

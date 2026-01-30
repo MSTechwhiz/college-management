@@ -10,11 +10,22 @@ import java.util.Optional;
 @Repository
 public interface FeeRepository extends MongoRepository<Fee, String> {
     List<Fee> findByStudentId(String studentId);
+
     List<Fee> findByStudentIdAndYearAndSemester(String studentId, int year, int semester);
+
     Optional<Fee> findByStudentIdAndYearAndSemesterAndFeeType(String studentId, int year, int semester, String feeType);
+
     List<Fee> findByDepartment(String department);
+
     List<Fee> findByRegisterNumber(String registerNumber);
+
     List<Fee> findByRegisterNumberAndDepartment(String registerNumber, String department);
+
     List<Fee> findByFeeType(String feeType);
+
     List<Fee> findByStatus(String status);
+
+    List<Fee> findByStudentIdAndStatus(String studentId, String status);
+
+    List<Fee> findByDepartmentAndStatus(String department, String status);
 }

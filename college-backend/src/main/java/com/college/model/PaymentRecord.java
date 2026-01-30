@@ -1,6 +1,7 @@
 package com.college.model;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
@@ -14,9 +15,13 @@ public class PaymentRecord {
     @Id
     private String id;
 
+    @Indexed
     private String feeId;
+    @Indexed
     private String studentId;
+    @Indexed
     private String registerNumber;
+    @Indexed
     private String department;
 
     // Payment details
@@ -30,6 +35,7 @@ public class PaymentRecord {
 
     // Audit trail
     private String processedBy; // admin ID or system
+    @Indexed
     private LocalDateTime processedAt;
     private String idempotencyKey;
 
@@ -38,6 +44,7 @@ public class PaymentRecord {
     private double balanceAfter;
     private boolean isReversed = false;
     private String reversalRecordId; // if this payment was reversed, link to reversal record
+    private Integer installmentIndex;
 
     // Metadata
     private String notes;
@@ -172,6 +179,14 @@ public class PaymentRecord {
 
     public String getNotes() {
         return notes;
+    }
+
+    public Integer getInstallmentIndex() {
+        return installmentIndex;
+    }
+
+    public void setInstallmentIndex(Integer installmentIndex) {
+        this.installmentIndex = installmentIndex;
     }
 
     public void setNotes(String notes) {

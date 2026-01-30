@@ -60,6 +60,7 @@ public class AnnouncementService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Department is required");
         }
         LocalDateTime now = LocalDateTime.now();
+        // Filter: ALL + STUDENTS + matching DEPARTMENT, all with publishDate <= now
         List<Announcement> all = announcementRepository
                 .findByTargetAndPublishDateLessThanEqualOrderByPublishDateDesc("ALL", now);
         List<Announcement> students = announcementRepository
@@ -79,6 +80,7 @@ public class AnnouncementService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Department is required");
         }
         LocalDateTime now = LocalDateTime.now();
+        // Filter: ALL + FACULTY + matching DEPARTMENT, all with publishDate <= now
         List<Announcement> all = announcementRepository
                 .findByTargetAndPublishDateLessThanEqualOrderByPublishDateDesc("ALL", now);
         List<Announcement> faculty = announcementRepository

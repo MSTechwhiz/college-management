@@ -1,11 +1,12 @@
 package com.college.service;
 
+import com.college.model.*;
 import com.college.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class AdminService {
@@ -24,6 +25,9 @@ public class AdminService {
 
     @Autowired
     private ReportRepository reportRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     public Map<String, Long> getDashboardCounts() {
         Map<String, Long> counts = new HashMap<>();
@@ -48,10 +52,37 @@ public class AdminService {
         if (query == null || query.trim().isEmpty()) {
             return results;
         }
-        
-        results.put("students", studentRepository.findByFullNameContainingIgnoreCaseOrRegisterNumberContainingIgnoreCase(query, query));
-        results.put("faculty", facultyRepository.findByNameContainingIgnoreCaseOrFacultyIdContainingIgnoreCase(query, query));
-        results.put("departments", departmentRepository.findByNameContainingIgnoreCase(query));
+
+        Set<Student> studentSet = new HashSet<>();
+        Set<Faculty> facultySet = new HashSet<>();
+        Set<Department> departmentSet = new HashSet<>();
+
+        // 1. Search by Username
+        userRepository.findByUsername(query).ifPresent(user -> {
+            studentRepository.findByUserId(user.getId()).ifPresent(studentSet::add);
+            facultyRepository.findByUserId(user.getId()).ifPresent(facultySet::add);
+        });
+
+        // 2. Search by Name / Register Number / Faculty ID
+        studentSet.addAll(studentRepository.findByFullNameContainingIgnoreCaseOrRegisterNumberContainingIgnoreCase(query, query));
+        facultySet.addAll(facultyRepository.findByNameContainingIgnoreCaseOrFacultyIdContainingIgnoreCase(query, query));
+
+        // 3. Search by Department
+        departmentSet.addAll(departmentRepository.findByNameContainingIgnoreCase(query));
+        // Include students and faculty from matching departments
+        studentSet.addAll(studentRepository.findByDepartmentContainingIgnoreCase(query));
+        facultySet.addAll(facultyRepository.findByDepartmentContainingIgnoreCase(query));
+
+        // 4. Filter HODs
+        List<Faculty> allFaculty = new ArrayList<>(facultySet);
+        List<Faculty> hods = allFaculty.stream()
+                .filter(f -> "HOD".equalsIgnoreCase(f.getRole()))
+                .collect(Collectors.toList());
+
+        results.put("students", new ArrayList<>(studentSet));
+        results.put("faculty", allFaculty);
+        results.put("hods", hods);
+        results.put("departments", new ArrayList<>(departmentSet));
         
         return results;
     }

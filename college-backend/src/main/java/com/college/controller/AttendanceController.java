@@ -27,7 +27,10 @@ public class AttendanceController {
     public ResponseEntity<Attendance> markAttendance(@RequestBody Attendance attendance,
             @RequestHeader("Authorization") String token) {
         String facultyId = jwtUtil.extractUsername(token.substring(7));
-        return ResponseEntity.ok(attendanceService.markAttendance(attendance, facultyId));
+        // Save attendance and immediately return the saved object (read-after-write
+        // consistency)
+        Attendance saved = attendanceService.markAttendance(attendance, facultyId);
+        return ResponseEntity.ok(saved);
     }
 
     @PostMapping("/bulk")
@@ -46,14 +49,24 @@ public class AttendanceController {
 
     @GetMapping("/student/{studentId}")
     @PreAuthorize("hasAnyRole('FACULTY', 'STUDENT')")
-    public ResponseEntity<List<Attendance>> getAttendanceByStudent(@PathVariable String studentId) {
-        return ResponseEntity.ok(attendanceService.getAttendanceByStudent(studentId));
+    public ResponseEntity<List<Attendance>> getAttendanceByStudent(
+            @PathVariable String studentId,
+            @RequestHeader("Authorization") String token) {
+        // Derive student identity for STUDENT role from JWT (backend source of truth)
+        String jwt = token.substring(7);
+        String role = jwtUtil.extractRole(jwt);
+        String identifier = "STUDENT".equals(role) ? jwtUtil.extractUsername(jwt) : studentId;
+        return ResponseEntity.ok(attendanceService.getAttendanceByStudent(identifier));
     }
 
     @GetMapping("/percentage/{studentId}/{subject}")
     @PreAuthorize("hasAnyRole('FACULTY', 'STUDENT')")
-    public ResponseEntity<Double> getAttendancePercentage(@PathVariable String studentId,
-            @PathVariable String subject) {
-        return ResponseEntity.ok(attendanceService.getAttendancePercentage(studentId, subject));
+    public ResponseEntity<Double> getAttendancePercentage(
+            @PathVariable String studentId, @PathVariable String subject,
+            @RequestHeader("Authorization") String token) {
+        String jwt = token.substring(7);
+        String role = jwtUtil.extractRole(jwt);
+        String identifier = "STUDENT".equals(role) ? jwtUtil.extractUsername(jwt) : studentId;
+        return ResponseEntity.ok(attendanceService.getAttendancePercentage(identifier, subject));
     }
 }

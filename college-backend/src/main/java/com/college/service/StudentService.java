@@ -165,21 +165,26 @@ public class StudentService {
                 .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.NOT_FOUND, "Student not found"));
 
-        // Cleanup: Delete associated records to prevent orphans (read-after-write
-        // consistency)
+        // Check for dependencies and BLOCK deletion if they exist (Safe Delete)
         List<Attendance> attendances = attendanceRepository.findByStudentId(id);
         if (!attendances.isEmpty()) {
-            attendanceRepository.deleteAll(attendances);
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT, 
+                    "Cannot delete student: Attendance records exist. Please delete them first or archive the student.");
         }
 
         List<Mark> marks = markRepository.findByStudentId(id);
         if (!marks.isEmpty()) {
-            markRepository.deleteAll(marks);
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT, 
+                    "Cannot delete student: Mark records exist. Please delete them first or archive the student.");
         }
 
         List<Fee> fees = feeRepository.findByStudentId(id);
         if (!fees.isEmpty()) {
-            feeRepository.deleteAll(fees);
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT, 
+                    "Cannot delete student: Fee records exist. Please delete them first or archive the student.");
         }
 
         // Finally delete the student

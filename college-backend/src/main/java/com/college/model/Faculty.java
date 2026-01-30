@@ -39,6 +39,8 @@ public class Faculty {
     private List<String> years;
 
     private String userId;
+    
+    private String dateOfBirth;
 
     public Faculty() {
     }
@@ -106,5 +108,13 @@ public class Faculty {
 
     public void setUserId(String userId) {
         this.userId = userId;
+    }
+    
+    public String getDateOfBirth() {
+        return dateOfBirth;
+    }
+    
+    public void setDateOfBirth(String dateOfBirth) {
+        this.dateOfBirth = dateOfBirth;
     }
 }

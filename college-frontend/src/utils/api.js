@@ -1,6 +1,5 @@
 import axios from 'axios'
-
-const API_BASE_URL = 'http://localhost:8080/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
 
 // Create axios instance with default config
 const api = axios.create({
@@ -29,13 +28,16 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Log error for debugging
-    console.error('API Error:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      url: error.config?.url,
-    })
+    // Log error for debugging (suppress in production builds)
+    if (import.meta.env.MODE !== 'production') {
+      console.error('API Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url,
+      })
+      
+    }
 
     // Handle network errors
     if (!error.response) {
@@ -50,8 +52,11 @@ api.interceptors.response.use(
       // Handle HTTP errors
       const status = error.response.status
       const data = error.response.data
+      const backendMessage = typeof data === 'string' ? data : data?.message
 
-      if (status === 401) {
+      if (backendMessage) {
+        error.userMessage = backendMessage
+      } else if (status === 401) {
         error.userMessage = 'Unauthorized. Please login again.'
       } else if (status === 403) {
         error.userMessage = 'Access forbidden.'
@@ -60,8 +65,7 @@ api.interceptors.response.use(
       } else if (status >= 500) {
         error.userMessage = 'Server error. Please try again later.'
       } else {
-        // Use backend error message if available
-        error.userMessage = typeof data === 'string' ? data : data?.message || 'An error occurred.'
+        error.userMessage = 'An error occurred.'
       }
     }
 

@@ -43,10 +43,7 @@ public class AttendanceService {
         if (attendance.getDate() == null || attendance.getDate().trim().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "date is required");
         }
-        if (attendance.getSemester() <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "semester is required and must be greater than 0");
-        }
+        // Derive semester from student to avoid UI changes
 
         User user = userRepository.findByUsername(facultyUsername)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
@@ -66,6 +63,7 @@ public class AttendanceService {
             }
         }
 
+        attendance.setSemester(student.getSemester());
         if (attendanceRepository.existsBySubjectAndDateAndStudentIdAndSemester(
                 attendance.getSubject(), attendance.getDate(), attendance.getStudentId(), attendance.getSemester())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -75,7 +73,14 @@ public class AttendanceService {
         attendance.setFacultyId(faculty.getFacultyId());
         attendance.setRegisterNumber(student.getRegisterNumber());
         attendance.setLocked(false);
-        return attendanceRepository.save(attendance);
+        Attendance saved = attendanceRepository.save(attendance);
+        // Read-after-write: verify immediate visibility
+        boolean visible = attendanceRepository.existsBySubjectAndDateAndStudentIdAndSemester(
+                saved.getSubject(), saved.getDate(), saved.getStudentId(), saved.getSemester());
+        if (!visible) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Attendance not visible after save");
+        }
+        return saved;
     }
 
     @Transactional
@@ -101,14 +106,6 @@ public class AttendanceService {
                 attendance.setDate(date);
                 attendance.setPresent(Boolean.parseBoolean(att.get("present").toString()));
 
-                Object semesterObj = att.get("semester");
-                if (semesterObj != null) {
-                    attendance.setSemester(Integer.parseInt(semesterObj.toString()));
-                } else {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "semester is required for each attendance record");
-                }
-
                 attendance.setFacultyId(faculty.getFacultyId());
                 attendance.setLocked(true);
 
@@ -125,10 +122,18 @@ public class AttendanceService {
                 }
 
                 attendance.setRegisterNumber(student.getRegisterNumber());
+                attendance.setSemester(student.getSemester());
 
                 if (!attendanceRepository.existsBySubjectAndDateAndStudentIdAndSemester(subject, date,
                         attendance.getStudentId(), attendance.getSemester())) {
-                    attendanceRepository.save(attendance);
+                    Attendance saved = attendanceRepository.save(attendance);
+                    // Read-after-write per record
+                    boolean visible = attendanceRepository.existsBySubjectAndDateAndStudentIdAndSemester(
+                            subject, date, attendance.getStudentId(), attendance.getSemester());
+                    if (!visible) {
+                        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                                "Attendance not visible after save for student " + attendance.getStudentId());
+                    }
                 }
             } catch (Exception e) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -142,10 +147,10 @@ public class AttendanceService {
         if (studentId == null || studentId.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found");
         }
+        // Query by studentId (primary identifier)
         List<Attendance> records = attendanceRepository.findByStudentId(studentId);
-        if (records.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No attendance records found for student");
-        }
+        // Return empty list instead of throwing exception - read-after-write
+        // consistency
         return records;
     }
 
@@ -155,7 +160,10 @@ public class AttendanceService {
 
     public double getAttendancePercentage(String identifier, String subject) {
         String studentId = resolveStudentId(identifier);
-        List<Attendance> attendance = attendanceRepository.findByStudentIdAndSubject(studentId, subject);
+        Student student = studentRepository.findById(studentId).orElse(null);
+        if (student == null) return 0.0;
+        List<Attendance> attendance = attendanceRepository.findByStudentIdAndSubjectAndSemester(
+                studentId, subject, student.getSemester());
         if (attendance.isEmpty())
             return 0.0;
         long presentCount = attendance.stream().filter(Attendance::isPresent).count();

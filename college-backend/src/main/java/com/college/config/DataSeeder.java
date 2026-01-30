@@ -1,7 +1,13 @@
 package com.college.config;
 
-import com.college.model.*;
-import com.college.repository.*;
+import com.college.model.User;
+import com.college.model.Department;
+import com.college.model.Faculty;
+import com.college.model.Student;
+import com.college.repository.UserRepository;
+import com.college.repository.DepartmentRepository;
+import com.college.repository.FacultyRepository;
+import com.college.repository.StudentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -29,19 +35,15 @@ public class DataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        // Only seed if database is empty
-        if (userRepository.count() > 0) {
-            return;
-        }
-
         seedDepartments();
         seedAdmin();
+        seedPrincipal();
         seedFaculty();
         seedStudents();
     }
 
     private void seedDepartments() {
-        String[] deptNames = {"IT", "CSE", "ECE", "AI&DS", "MBA", "MCA"};
+        String[] deptNames = { "IT", "CSE", "ECE", "AI & DS", "MBA", "MCA" };
         for (String name : deptNames) {
             if (!departmentRepository.existsByName(name)) {
                 Department dept = new Department();
@@ -62,18 +64,28 @@ public class DataSeeder implements CommandLineRunner {
         }
     }
 
-    private void seedFaculty() {
-        // IT Faculty
-        seedFacultyUser("faculty_it@sbc", "Faculty@123", "IT", "FAC001", "Dr. IT Faculty");
-        
-        // CSE Faculty (optional)
-        seedFacultyUser("faculty_cse@sbc", "Faculty@123", "CSE", "FAC002", "Dr. CSE Faculty");
-        
-        // ECE Faculty (optional)
-        seedFacultyUser("faculty_ece@sbc", "Faculty@123", "ECE", "FAC003", "Dr. ECE Faculty");
+    private void seedPrincipal() {
+        if (!userRepository.existsByUsername("principal@sbc")) {
+            User principal = new User();
+            principal.setUsername("principal@sbc");
+            principal.setPassword(passwordEncoder.encode("principle@123"));
+            principal.setRole("PRINCIPAL");
+            principal.setActive(true);
+            userRepository.save(principal);
+        }
     }
 
-    private void seedFacultyUser(String username, String password, String department, String facultyId, String name) {
+    private void seedFaculty() {
+        seedFacultyUser("faculty_it@sbc", "Faculty@123", "IT", "FAC001", "Dr. IT Faculty", null);
+        seedFacultyUser("faculty_cse@sbc", "Faculty@123", "CSE", "FAC002", "Dr. CSE Faculty", null);
+        seedFacultyUser("faculty_ece@sbc", "Faculty@123", "ECE", "FAC003", "Dr. ECE Faculty", null);
+        if (!userRepository.existsByUsername("faculty")) {
+            seedFacultyUser("faculty", "01/01/1999", "IT", "FACTEST", "Test Faculty", "01/01/1999");
+        }
+    }
+
+    private void seedFacultyUser(String username, String password, String department, String facultyId, String name,
+            String dob) {
         if (!userRepository.existsByUsername(username)) {
             // Create User
             User user = new User();
@@ -94,19 +106,23 @@ public class DataSeeder implements CommandLineRunner {
             faculty.setSubjects(Arrays.asList("Subject 1", "Subject 2"));
             faculty.setYears(Arrays.asList("I", "II", "III", "IV"));
             faculty.setUserId(user.getId());
+            if (dob != null) {
+                faculty.setDateOfBirth(dob);
+            }
             facultyRepository.save(faculty);
         }
     }
 
     private void seedStudents() {
-        // IT Student
-        seedStudentUser("student_it_01@sbc", "Student@123", "IT", "IT001", "IT Student 01");
-        
-        // CSE Student (optional)
-        seedStudentUser("student_cse_01@sbc", "Student@123", "CSE", "CSE001", "CSE Student 01");
+        seedStudentUser("student_it_01@sbc", "Student@123", "IT", "IT001", "IT Student 01", null);
+        seedStudentUser("student_cse_01@sbc", "Student@123", "CSE", "CSE001", "CSE Student 01", null);
+        if (!userRepository.existsByUsername("512122205049")) {
+            seedStudentUser("512122205049", "08/09/2004", "IT", "512122205049", "Test Student", "08/09/2004");
+        }
     }
 
-    private void seedStudentUser(String username, String password, String department, String registerNumber, String fullName) {
+    private void seedStudentUser(String username, String password, String department, String registerNumber,
+            String fullName, String dob) {
         if (!userRepository.existsByUsername(username)) {
             // Create User
             User user = new User();
@@ -129,6 +145,9 @@ public class DataSeeder implements CommandLineRunner {
             student.setQuota("General");
             student.setScholarshipCategory("Others");
             student.setUserId(user.getId());
+            if (dob != null) {
+                student.setDateOfBirth(dob);
+            }
             studentRepository.save(student);
         }
     }

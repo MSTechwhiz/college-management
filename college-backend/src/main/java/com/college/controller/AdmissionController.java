@@ -17,7 +17,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/admissions")
 @CrossOrigin(origins = "http://localhost:3000")
-@PreAuthorize("hasRole('ADMIN')")
 public class AdmissionController {
 
     @Autowired
@@ -26,6 +25,7 @@ public class AdmissionController {
     private AuditLogService auditLogService;
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     @AuditAction(action = "CREATE_ADMISSION", resource = "Admission")
     public ResponseEntity<Admission> createAdmission(@Valid @RequestBody Admission admission,
             Authentication authentication) {
@@ -37,16 +37,19 @@ public class AdmissionController {
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<Admission>> getAllAdmissions() {
         return ResponseEntity.ok(admissionService.getAllAdmissions());
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Admission> getAdmissionById(@PathVariable String id) {
         return ResponseEntity.ok(admissionService.getAdmissionById(id));
     }
 
     @GetMapping("/department/{department}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<Admission>> getAdmissionsByDepartment(@PathVariable String department) {
         return ResponseEntity.ok(admissionService.getAdmissionsByDepartment(department));
     }
@@ -57,8 +60,9 @@ public class AdmissionController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @AuditAction(action = "UPDATE_ADMISSION", resource = "Admission", targetIdExpression = "#id")
-    public ResponseEntity<Admission> updateAdmission(@PathVariable String id, @RequestBody Admission admission,
+    public ResponseEntity<Admission> updateAdmission(@PathVariable String id, @Valid @RequestBody Admission admission,
             Authentication authentication) {
         Admission updated = admissionService.updateAdmission(id, admission);
         String authRole = authentication.getAuthorities().stream().findFirst()
@@ -68,12 +72,14 @@ public class AdmissionController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @AuditAction(action = "DELETE_ADMISSION", resource = "Admission", targetIdExpression = "#id")
-    public ResponseEntity<?> deleteAdmission(@PathVariable String id, Authentication authentication) {
-        admissionService.deleteAdmission(id);
+    public ResponseEntity<Admission> deleteAdmission(@PathVariable String id, Authentication authentication) {
+        Admission deleted = admissionService.deleteAdmissionAndReturn(id);
         String authRole = authentication.getAuthorities().stream().findFirst()
                 .map(a -> a.getAuthority().replace("ROLE_", "")).orElse("UNKNOWN");
         auditLogService.log(authentication.getName(), authRole, "DELETE_ADMISSION", id, null);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(deleted);
     }
+
 }

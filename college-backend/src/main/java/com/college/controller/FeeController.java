@@ -5,6 +5,7 @@ import com.college.model.Fee;
 import com.college.model.FeeStructure;
 import com.college.service.FeeService;
 import com.college.service.AuditLogService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -36,9 +37,10 @@ public class FeeController {
     public ResponseEntity<List<Fee>> getAllFees(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String department,
-            @RequestParam(required = false) String feeType) {
-        if (search != null || department != null || feeType != null) {
-            return ResponseEntity.ok(feeService.searchFees(search, department, feeType));
+            @RequestParam(required = false) String feeType,
+            @RequestParam(required = false) String status) {
+        if (search != null || department != null || feeType != null || status != null) {
+            return ResponseEntity.ok(feeService.searchFees(search, department, feeType, status));
         }
         return ResponseEntity.ok(feeService.getAllFees());
     }
@@ -49,16 +51,53 @@ public class FeeController {
         return ResponseEntity.ok(feeService.getFeesByStudent(studentId));
     }
 
+    @GetMapping("/student/{studentId}/payments")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STUDENT')")
+    public ResponseEntity<List<com.college.model.PaymentRecord>> getStudentPaymentHistory(
+            @PathVariable String studentId) {
+        return ResponseEntity.ok(feeService.getStudentPaymentHistory(studentId));
+    }
+
     @GetMapping("/student/{studentId}/summary")
     @PreAuthorize("hasAnyRole('ADMIN', 'STUDENT')")
     public ResponseEntity<Map<String, Object>> getFeesSummary(@PathVariable String studentId) {
         return ResponseEntity.ok(feeService.getFeesSummary(studentId));
     }
 
+    @GetMapping("/student/{studentId}/pending")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STUDENT')")
+    public ResponseEntity<List<Fee>> getPendingFeesByStudent(@PathVariable String studentId) {
+        return ResponseEntity.ok(feeService.getPendingFeesByStudent(studentId));
+    }
+
+    @GetMapping("/student/{studentId}/paid")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STUDENT')")
+    public ResponseEntity<List<Fee>> getPaidFeesByStudent(@PathVariable String studentId) {
+        return ResponseEntity.ok(feeService.getPaidFeesByStudent(studentId));
+    }
+
     @GetMapping("/department/{department}/summary")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getDepartmentFeesSummary(@PathVariable String department) {
         return ResponseEntity.ok(feeService.getDepartmentFeesSummary(department));
+    }
+
+    @GetMapping("/department/{department}/pending")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<Fee>> getPendingFeesByDepartment(@PathVariable String department) {
+        return ResponseEntity.ok(feeService.getPendingFeesByDepartment(department));
+    }
+
+    @GetMapping("/department/{department}/paid")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<Fee>> getPaidFeesByDepartment(@PathVariable String department) {
+        return ResponseEntity.ok(feeService.getPaidFeesByDepartment(department));
+    }
+
+    @GetMapping("/type/{feeType}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<Fee>> getFeesByType(@PathVariable String feeType) {
+        return ResponseEntity.ok(feeService.getFeesByType(feeType));
     }
 
     @PostMapping("/generate")
@@ -84,6 +123,14 @@ public class FeeController {
         return ResponseEntity.ok(feeService.getAllFeeStructures());
     }
 
+    @DeleteMapping("/structure/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @AuditAction(action = "DELETE_FEE_STRUCTURE", resource = "FeeStructure", targetIdExpression = "#id")
+    public ResponseEntity<Void> deleteFeeStructure(@PathVariable String id) {
+        feeService.deleteFeeStructure(id);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/{feeId}/override")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Fee> overrideFee(@PathVariable String feeId, @RequestBody Map<String, Object> request,
@@ -97,6 +144,12 @@ public class FeeController {
         return ResponseEntity.ok(fee);
     }
 
+    @GetMapping("/{feeId}/payments")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STUDENT')")
+    public ResponseEntity<List<com.college.model.PaymentRecord>> getPaymentHistory(@PathVariable String feeId) {
+        return ResponseEntity.ok(feeService.getPaymentHistory(feeId));
+    }
+
     @PostMapping("/{feeId}/pay")
     @PreAuthorize("hasRole('ADMIN')")
     @AuditAction(action = "PROCESS_PAYMENT", resource = "Fee", targetIdExpression = "#feeId")
@@ -108,6 +161,41 @@ public class FeeController {
         String authRole = authentication.getAuthorities().stream().findFirst()
                 .map(a -> a.getAuthority().replace("ROLE_", "")).orElse("UNKNOWN");
         auditLogService.log(authentication.getName(), authRole, "FEE_PAYMENT", fee.getId(), null);
+        return ResponseEntity.ok(fee);
+    }
+    
+    @PostMapping("/{feeId}/installments")
+    @PreAuthorize("hasRole('ADMIN')")
+    @AuditAction(action = "DEFINE_INSTALLMENTS", resource = "Fee", targetIdExpression = "#feeId")
+    public ResponseEntity<Fee> defineInstallments(@PathVariable String feeId,
+            @RequestBody List<Map<String, Object>> items,
+            Authentication authentication) {
+        Fee fee = feeService.defineInstallmentPlan(feeId, items, authentication.getName());
+        String authRole = authentication.getAuthorities().stream().findFirst()
+                .map(a -> a.getAuthority().replace("ROLE_", "")).orElse("UNKNOWN");
+        auditLogService.log(authentication.getName(), authRole, "DEFINE_INSTALLMENTS", fee.getId(), null);
+        return ResponseEntity.ok(fee);
+    }
+    
+    @GetMapping("/{feeId}/installments")
+    @PreAuthorize("hasAnyRole('ADMIN','STUDENT')")
+    public ResponseEntity<List<Fee.Installment>> getInstallments(@PathVariable String feeId) {
+        return ResponseEntity.ok(feeService.getInstallments(feeId));
+    }
+    
+    @PostMapping("/{feeId}/installments/{index}/pay")
+    @PreAuthorize("hasRole('ADMIN')")
+    @AuditAction(action = "PROCESS_INSTALLMENT_PAYMENT", resource = "Fee", targetIdExpression = "#feeId")
+    public ResponseEntity<Fee> payInstallment(@PathVariable String feeId, @PathVariable int index,
+            @RequestBody Map<String, Object> request,
+            Authentication authentication) {
+        double amount = Double.parseDouble(request.get("amount").toString());
+        String method = request.get("method") != null ? request.get("method").toString() : "CASH";
+        String idempotencyKey = request.get("idempotencyKey") != null ? request.get("idempotencyKey").toString() : null;
+        Fee fee = feeService.makeInstallmentPaymentWithIdempotency(feeId, index, amount, method, authentication.getName(), idempotencyKey);
+        String authRole = authentication.getAuthorities().stream().findFirst()
+                .map(a -> a.getAuthority().replace("ROLE_", "")).orElse("UNKNOWN");
+        auditLogService.log(authentication.getName(), authRole, "FEE_INSTALLMENT_PAYMENT", fee.getId(), null);
         return ResponseEntity.ok(fee);
     }
 
@@ -152,7 +240,8 @@ public class FeeController {
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @AuditAction(action = "UPDATE_FEE", resource = "Fee", targetIdExpression = "#id")
-    public ResponseEntity<Fee> updateFee(@PathVariable String id, @RequestBody Fee fee, Authentication authentication) {
+    public ResponseEntity<Fee> updateFee(@PathVariable String id, @Valid @RequestBody Fee fee,
+            Authentication authentication) {
         Fee updated = feeService.updateFeeManual(id, fee);
         String authRole = authentication.getAuthorities().stream().findFirst()
                 .map(a -> a.getAuthority().replace("ROLE_", "")).orElse("UNKNOWN");
@@ -163,7 +252,7 @@ public class FeeController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @AuditAction(action = "DELETE_FEE", resource = "Fee", targetIdExpression = "#id")
-    public ResponseEntity<?> deleteFee(@PathVariable String id, Authentication authentication) {
+    public ResponseEntity<Void> deleteFee(@PathVariable String id, Authentication authentication) {
         feeService.deleteFee(id);
         String authRole = authentication.getAuthorities().stream().findFirst()
                 .map(a -> a.getAuthority().replace("ROLE_", "")).orElse("UNKNOWN");

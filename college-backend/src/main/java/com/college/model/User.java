@@ -26,7 +26,7 @@ public class User {
     private String password;
 
     @NotBlank(message = "Role is required")
-    @Pattern(regexp = "(ADMIN|FACULTY|STUDENT)", message = "Role must be ADMIN, FACULTY, or STUDENT")
+    @Pattern(regexp = "(ADMIN|FACULTY|STUDENT|PRINCIPAL)", message = "Role must be ADMIN, FACULTY, STUDENT, or PRINCIPAL")
     private String role;
 
     private List<String> departments;

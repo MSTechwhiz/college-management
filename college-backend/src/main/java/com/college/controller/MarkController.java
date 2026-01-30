@@ -34,7 +34,8 @@ public class MarkController {
 
     @PostMapping("/bulk")
     @PreAuthorize("hasRole('FACULTY')")
-    public ResponseEntity<?> createOrUpdateMarksBulk(@RequestBody List<Mark> marks, @RequestHeader("Authorization") String token) {
+    public ResponseEntity<?> createOrUpdateMarksBulk(@RequestBody List<Mark> marks,
+            @RequestHeader("Authorization") String token) {
         try {
             String facultyId = jwtUtil.extractUsername(token.substring(7));
             markService.createOrUpdateMarksBulk(marks, facultyId);
@@ -52,14 +53,22 @@ public class MarkController {
 
     @GetMapping("/student/{studentId}")
     @PreAuthorize("hasAnyRole('FACULTY', 'STUDENT')")
-    public ResponseEntity<List<Mark>> getMarksByStudent(@PathVariable String studentId) {
-        return ResponseEntity.ok(markService.getMarksByStudent(studentId));
+    public ResponseEntity<List<Mark>> getMarksByStudent(@PathVariable String studentId,
+            @RequestHeader("Authorization") String token) {
+        String jwt = token.substring(7);
+        String role = jwtUtil.extractRole(jwt);
+        String identifier = "STUDENT".equals(role) ? jwtUtil.extractUsername(jwt) : studentId;
+        return ResponseEntity.ok(markService.getMarksByStudent(identifier));
     }
 
     @GetMapping("/student/{studentId}/subject/{subject}")
     @PreAuthorize("hasAnyRole('FACULTY', 'STUDENT')")
-    public ResponseEntity<Mark> getMarkByStudentAndSubject(@PathVariable String studentId, @PathVariable String subject) {
-        Mark mark = markService.getMarkByStudentAndSubject(studentId, subject);
+    public ResponseEntity<Mark> getMarkByStudentAndSubject(@PathVariable String studentId, @PathVariable String subject,
+            @RequestHeader("Authorization") String token) {
+        String jwt = token.substring(7);
+        String role = jwtUtil.extractRole(jwt);
+        String identifier = "STUDENT".equals(role) ? jwtUtil.extractUsername(jwt) : studentId;
+        Mark mark = markService.getMarkByStudentAndSubject(identifier, subject);
         if (mark == null) {
             return ResponseEntity.notFound().build();
         }

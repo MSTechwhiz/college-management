@@ -3,6 +3,8 @@ package com.college.config;
 import com.college.dto.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -24,6 +26,8 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
  */
 @ControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     private ResponseEntity<ErrorResponse> buildResponse(HttpStatus status, String message, String field,
             HttpServletRequest request) {
@@ -118,18 +122,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponse> handleRuntime(RuntimeException ex, HttpServletRequest request) {
-        // Log the actual exception for debugging (production would log to
-        // file/monitoring service)
-        ex.printStackTrace();
+        logger.error("Runtime exception: {}", ex.getMessage());
         String message = ex.getMessage() != null ? ex.getMessage() : "An unexpected error occurred";
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, message, request);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex, HttpServletRequest request) {
-        // Log the actual exception for debugging (production would log to
-        // file/monitoring service)
-        ex.printStackTrace();
+        logger.error("Unhandled exception: {}", ex.getMessage());
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected server error occurred", request);
     }
 }

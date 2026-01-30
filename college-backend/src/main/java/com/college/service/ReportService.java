@@ -31,9 +31,16 @@ public class ReportService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
+        // Try to find student by User ID first
         Student student = studentRepository.findByUserId(user.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Student profile not found for user: " + username));
+                .orElse(null);
+
+        // Fallback: Try to find student by Register Number (assuming username is register number)
+        if (student == null) {
+            student = studentRepository.findByRegisterNumber(username)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Student profile not found for user: " + username));
+        }
 
         return createReport(report, student.getId());
     }

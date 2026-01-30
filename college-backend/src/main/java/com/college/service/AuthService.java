@@ -37,6 +37,12 @@ public class AuthService {
     @Autowired
     private TokenRevocationService tokenRevocationService;
 
+    @Autowired
+    private com.college.repository.StudentRepository studentRepository;
+
+    @Autowired
+    private com.college.repository.FacultyRepository facultyRepository;
+
     private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final long LOCKOUT_DURATION_MINUTES = 15;
 
@@ -78,10 +84,10 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid role");
         }
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        boolean passwordOk = passwordEncoder.matches(request.getPassword(), user.getPassword());
+        if (!passwordOk) {
             int attempts = user.getFailedAttempts() + 1;
             user.setFailedAttempts(attempts);
-
             if (attempts >= MAX_FAILED_ATTEMPTS) {
                 user.setLocked(true);
                 user.setLockedUntil(LocalDateTime.now().plusMinutes(LOCKOUT_DURATION_MINUTES));
@@ -98,16 +104,39 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User account is inactive");
         }
 
-        // Password policy: min 8 chars, upper+lower+digit
-        String rawPassword = request.getPassword();
-        if (rawPassword.length() < 8
-                || !rawPassword.matches(".*[A-Z].*")
-                || !rawPassword.matches(".*[a-z].*")
-                || !rawPassword.matches(".*\\d.*")) {
-            auditLogService.logLoginAttempt(user.getUsername(), user.getRole(), false, ipAddress,
-                    "Password doesn't meet policy");
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password does not meet policy requirements");
-        }
+        if ("ADMIN".equals(user.getRole())) {
+            String rawPassword = request.getPassword();
+            if (rawPassword.length() < 8
+                    || !rawPassword.matches(".*[A-Z].*")
+                    || !rawPassword.matches(".*[a-z].*")
+                    || !rawPassword.matches(".*\\d.*")) {
+                auditLogService.logLoginAttempt(user.getUsername(), user.getRole(), false, ipAddress,
+                        "Password doesn't meet policy");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password does not meet policy requirements");
+            }
+        } else if ("STUDENT".equals(user.getRole()) || "FACULTY".equals(user.getRole())) {
+            String dob = request.getPassword();
+            if (!dob.matches("^\\d{2}/\\d{2}/\\d{4}$")) {
+                auditLogService.logLoginAttempt(user.getUsername(), user.getRole(), false, ipAddress,
+                        "DOB format invalid");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date of birth must be in DD/MM/YYYY format");
+            }
+            if ("STUDENT".equals(user.getRole())) {
+                java.util.Optional<com.college.model.Student> sOpt = studentRepository.findByUserId(user.getId());
+                if (sOpt.isEmpty() || sOpt.get().getDateOfBirth() == null || !dob.equals(sOpt.get().getDateOfBirth())) {
+                if (sOpt.isEmpty() || sOpt.get().getDateOfBirth() == null || !dob.equals(sOpt.get().getDateOfBirth())) {
+                    auditLogService.logLoginAttempt(user.getUsername(), user.getRole(), false, ipAddress,
+                            "DOB mismatch");
+                    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+                }
+                java.util.Optional<com.college.model.Faculty> fOpt = facultyRepository.findByUserId(user.getId());
+                if (fOpt.isEmpty() || fOpt.get().getDateOfBirth() == null || !dob.equals(fOpt.get().getDateOfBirth())) {
+                fOpt = fr.findByUserId(user.getId());
+                if (fOpt.isEmpty() || fOpt.get().getDateOfBirth() == null || !dob.equals(fOpt.get().getDateOfBirth())) {
+                    auditLogService.logLoginAttempt(user.getUsername(), user.getRole(), false, ipAddress,
+                            "DOB mismatch");
+                    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+                }
 
         // Reset failed attempts on successful login
         user.setFailedAttempts(0);

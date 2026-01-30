@@ -43,6 +43,14 @@ public class Student {
     @Pattern(regexp = "(FG|BC|MBC|Others)?", message = "Scholarship category must be FG, BC, MBC, or Others")
     private String scholarshipCategory;
 
+    @Indexed
+    private String batch;
+    @Indexed
+    private String academicYear;
+
+    private String dateOfBirth;
+
+    @Indexed
     private String userId;
 
     public Student() {
@@ -119,6 +127,30 @@ public class Student {
 
     public void setScholarshipCategory(String scholarshipCategory) {
         this.scholarshipCategory = scholarshipCategory;
+    }
+
+    public String getBatch() {
+        return batch;
+    }
+
+    public void setBatch(String batch) {
+        this.batch = batch;
+    }
+
+    public String getAcademicYear() {
+        return academicYear;
+    }
+
+    public void setAcademicYear(String academicYear) {
+        this.academicYear = academicYear;
+    }
+
+    public String getDateOfBirth() {
+        return dateOfBirth;
+    }
+
+    public void setDateOfBirth(String dateOfBirth) {
+        this.dateOfBirth = dateOfBirth;
     }
 
     public String getUserId() {
