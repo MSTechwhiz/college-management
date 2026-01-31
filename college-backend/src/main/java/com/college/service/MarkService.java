@@ -29,6 +29,12 @@ public class MarkService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private com.college.repository.SubjectRepository subjectRepository;
+
+    @Autowired
+    private GPAService gpaService;
+
     public Mark createOrUpdateMark(Mark mark, String facultyUsername) {
         if (mark.getStudentId() == null || mark.getStudentId().trim().isEmpty()) {
             throw new RuntimeException("studentId is required");
@@ -56,7 +62,7 @@ public class MarkService {
         }
 
         Optional<Mark> existing = markRepository.findByStudentIdAndSubject(mark.getStudentId(), mark.getSubject());
-        
+
         Mark markToSave;
         if (existing.isPresent()) {
             markToSave = existing.get();
@@ -73,14 +79,38 @@ public class MarkService {
         markToSave.setCaMarks(mark.getCaMarks());
         markToSave.setModelMarks(mark.getModelMarks());
         markToSave.setPracticalMarks(mark.getPracticalMarks());
-        
+
         double total = mark.getCaMarks() + mark.getModelMarks() + mark.getPracticalMarks();
         markToSave.setTotalMarks(total);
-        markToSave.setGrade(calculateGrade(total));
+
+        String grade = calculateGrade(total);
+        markToSave.setGrade(grade);
+
+        // Auto-populate credits and semester from Subject if subjectCode is provided
+        if (mark.getSubjectCode() != null && !mark.getSubjectCode().isEmpty()) {
+            markToSave.setSubjectCode(mark.getSubjectCode());
+            subjectRepository.findBySubjectCode(mark.getSubjectCode()).ifPresent(subject -> {
+                markToSave.setCredits(subject.getCredits());
+                markToSave.setSemester(subject.getSemester());
+            });
+        }
+
+        // Calculate grade points from grade
+        markToSave.setGradePoints(gradeToPoints(grade));
+
         markToSave.setFacultyId(faculty.getFacultyId());
-        markToSave.setLocked(true); // Lock after submission
+        markToSave.setLocked(true);
 
         return markRepository.save(markToSave);
+    }
+
+    public void triggerGPACalculation(String studentId, int semester) {
+        try {
+            gpaService.calculateAndSaveGPA(studentId, semester);
+        } catch (Exception e) {
+            System.err.println("GPA calculation failed for student " + studentId + ", semester " + semester + ": "
+                    + e.getMessage());
+        }
     }
 
     public List<Mark> getMarksByStudent(String studentId) {
@@ -97,9 +127,8 @@ public class MarkService {
             try {
                 createOrUpdateMark(mark, facultyUsername);
             } catch (Exception e) {
-                // Log error or rethrow if strict
-                // For now, rethrow to stop on error
-                throw new RuntimeException("Error processing mark for student " + mark.getStudentId() + ": " + e.getMessage());
+                throw new RuntimeException(
+                        "Error processing mark for student " + mark.getStudentId() + ": " + e.getMessage());
             }
         }
     }
@@ -109,11 +138,42 @@ public class MarkService {
     }
 
     private String calculateGrade(double total) {
-        if (total >= 90) return "S";
-        if (total >= 80) return "A";
-        if (total >= 70) return "B";
-        if (total >= 60) return "C";
-        if (total >= 50) return "D";
+        if (total >= 90)
+            return "O";
+        if (total >= 80)
+            return "A";
+        if (total >= 70)
+            return "B";
+        if (total >= 60)
+            return "C";
+        if (total >= 50)
+            return "D";
         return "F";
+    }
+
+    private double gradeToPoints(String grade) {
+        if (grade == null || grade.isEmpty()) {
+            return 0.0;
+        }
+        switch (grade.toUpperCase()) {
+            case "O":
+            case "A+":
+                return 10.0;
+            case "A":
+                return 9.0;
+            case "B+":
+                return 8.0;
+            case "B":
+                return 7.0;
+            case "C":
+                return 6.0;
+            case "D":
+                return 5.0;
+            case "E":
+            case "F":
+                return 0.0;
+            default:
+                return 0.0;
+        }
     }
 }
