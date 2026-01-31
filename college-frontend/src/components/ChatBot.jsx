@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCommentDots, faTimes, faPaperPlane, faRobot, faUser } from '@fortawesome/free-solid-svg-icons'
+import api from '../utils/api'
 
 const ChatBot = () => {
   const [isOpen, setIsOpen] = useState(false)
@@ -19,7 +20,17 @@ const ChatBot = () => {
     scrollToBottom()
   }, [messages, isTyping])
 
-  const handleSend = () => {
+  const getBotResponse = async (message) => {
+    try {
+      const response = await api.post('/chat/query', { query: message })
+      return response.data.response
+    } catch (error) {
+      console.error("Chatbot Error:", error)
+      return "I'm having trouble connecting to the server. Please try again later."
+    }
+  }
+
+  const handleSend = async () => {
     if (!input.trim()) return
 
     const userMessage = { role: 'user', text: input }
@@ -27,37 +38,11 @@ const ChatBot = () => {
     setInput('')
     setIsTyping(true)
 
-    // Simulate bot response time
-    setTimeout(() => {
-      const response = getBotResponse(input.toLowerCase())
-      setMessages(prev => [...prev, { role: 'bot', text: response }])
-      setIsTyping(false)
-    }, 1000)
-  }
+    // Call backend API
+    const responseText = await getBotResponse(input)
 
-  const getBotResponse = (message) => {
-    if (message.includes('dashboard') || message.includes('home')) {
-      return 'You can access your dashboard from the navigation menu. Admin, Faculty, and Student dashboards show different information based on your role.'
-    }
-    if (message.includes('attendance')) {
-      return 'Attendance can be viewed in the Attendance section. Faculty can mark attendance, and students can view their attendance percentage.'
-    }
-    if (message.includes('marks') || message.includes('grades')) {
-      return 'Marks are entered by faculty and can be viewed by students. The system automatically calculates totals and grades.'
-    }
-    if (message.includes('fees')) {
-      return 'Fee information is available in the Fees section. Students can view their fee status, and admins can manage fee structures.'
-    }
-    if (message.includes('announcement')) {
-      return 'Announcements are displayed on the login page and in your dashboard. They are sorted by publish date.'
-    }
-    if (message.includes('report')) {
-      return 'Students can create reports for issues related to fees, marks, attendance, or other concerns. Reports are managed by admins.'
-    }
-    if (message.includes('help') || message.includes('navigation')) {
-      return 'I can help with: Navigation, Academic questions about attendance, marks, fees, announcements, and reports. What would you like to know?'
-    }
-    return 'I can help you with navigation and academic questions. Try asking about dashboard, attendance, marks, fees, announcements, or reports.'
+    setMessages(prev => [...prev, { role: 'bot', text: responseText }])
+    setIsTyping(false)
   }
 
   return (
@@ -104,13 +89,12 @@ const ChatBot = () => {
                     <FontAwesomeIcon icon={faRobot} />
                   </div>
                 )}
-                
+
                 <div
-                  className={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
-                    msg.role === 'user'
-                      ? 'bg-blue-600 text-white rounded-br-none'
-                      : 'bg-white text-slate-700 border border-gray-100 rounded-bl-none'
-                  }`}
+                  className={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.role === 'user'
+                    ? 'bg-blue-600 text-white rounded-br-none'
+                    : 'bg-white text-slate-700 border border-gray-100 rounded-bl-none'
+                    }`}
                 >
                   {msg.text}
                 </div>
@@ -122,7 +106,7 @@ const ChatBot = () => {
                 )}
               </div>
             ))}
-            
+
             {isTyping && (
               <div className="flex items-end gap-2 justify-start">
                 <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs flex-shrink-0">

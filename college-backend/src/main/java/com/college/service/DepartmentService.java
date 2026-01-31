@@ -45,6 +45,13 @@ public class DepartmentService {
                 .collect(Collectors.toList());
     }
 
+    public Department createDepartment(Department department) {
+        if (departmentRepository.existsByName(department.getName())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Department with this name already exists");
+        }
+        return departmentRepository.save(department);
+    }
+
     public Map<String, Object> getDepartmentDetail(String departmentId) {
         Department dept = departmentRepository.findById(departmentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Department not found"));

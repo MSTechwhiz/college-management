@@ -15,14 +15,12 @@ public class Admission {
     @Id
     private String id;
 
-    @NotBlank(message = "Register number is required")
-    @Size(min = 3, max = 50, message = "Register number must be between 3 and 50 characters")
     private String registerNumber;
 
     @NotBlank(message = "Department is required")
     private String department;
 
-    @Pattern(regexp = "(Counselling|Management)", message = "Admission method must be Counselling or Management")
+    @Pattern(regexp = "(Counselling|Management|COUNSELLING|MANAGEMENT)", message = "Admission method must be Counselling or Management")
     private String admissionMethod;
 
     private String quota;
@@ -48,16 +46,13 @@ public class Admission {
     @Pattern(regexp = "(Pending|Approved|Rejected)", message = "Status must be Pending, Approved, or Rejected")
     private String status;
 
-    @Min(value = 0, message = "Tenth marks cannot be negative")
-    @Max(value = 100, message = "Tenth marks cannot exceed 100")
     private String tenthMarks;
 
-    @Min(value = 0, message = "Twelfth marks cannot be negative")
-    @Max(value = 100, message = "Twelfth marks cannot exceed 100")
     private String twelfthMarks;
 
+    private Double cutoff;
+
     // Mandatory fields
-    @NotBlank(message = "Student ID is required")
     private String studentId;
 
     @NotBlank(message = "Department ID is required")
@@ -179,6 +174,14 @@ public class Admission {
 
     public void setAdmissionDate(LocalDateTime admissionDate) {
         this.admissionDate = admissionDate;
+    }
+
+    public Double getCutoff() {
+        return cutoff;
+    }
+
+    public void setCutoff(Double cutoff) {
+        this.cutoff = cutoff;
     }
 
     // New getters and setters

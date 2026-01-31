@@ -36,7 +36,6 @@ public class Announcement {
 
     private LocalDateTime createdAt;
 
-    @NotBlank(message = "Created by is required")
     private String createdBy;
 
     public Announcement() {

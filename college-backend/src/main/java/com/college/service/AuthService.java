@@ -121,23 +121,23 @@ public class AuthService {
                         "DOB format invalid");
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date of birth must be in DD/MM/YYYY format");
             }
+            
             if ("STUDENT".equals(user.getRole())) {
                 java.util.Optional<com.college.model.Student> sOpt = studentRepository.findByUserId(user.getId());
                 if (sOpt.isEmpty() || sOpt.get().getDateOfBirth() == null || !dob.equals(sOpt.get().getDateOfBirth())) {
-                if (sOpt.isEmpty() || sOpt.get().getDateOfBirth() == null || !dob.equals(sOpt.get().getDateOfBirth())) {
                     auditLogService.logLoginAttempt(user.getUsername(), user.getRole(), false, ipAddress,
                             "DOB mismatch");
                     throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
                 }
+            } else if ("FACULTY".equals(user.getRole())) {
                 java.util.Optional<com.college.model.Faculty> fOpt = facultyRepository.findByUserId(user.getId());
                 if (fOpt.isEmpty() || fOpt.get().getDateOfBirth() == null || !dob.equals(fOpt.get().getDateOfBirth())) {
-                fOpt = fr.findByUserId(user.getId());
-                if (fOpt.isEmpty() || fOpt.get().getDateOfBirth() == null || !dob.equals(fOpt.get().getDateOfBirth())) {
                     auditLogService.logLoginAttempt(user.getUsername(), user.getRole(), false, ipAddress,
                             "DOB mismatch");
                     throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
                 }
-
+            }
+        }
         // Reset failed attempts on successful login
         user.setFailedAttempts(0);
         user.setLocked(false);

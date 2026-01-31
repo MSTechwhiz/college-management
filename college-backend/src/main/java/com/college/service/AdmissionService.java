@@ -1,6 +1,7 @@
 package com.college.service;
 
 import com.college.model.Admission;
+import com.college.model.Student;
 import com.college.repository.AdmissionRepository;
 import com.college.repository.DepartmentRepository;
 import com.college.repository.StudentRepository;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+
 import java.util.stream.Collectors;
 
 import org.springframework.web.server.ResponseStatusException;
@@ -25,6 +27,10 @@ public class AdmissionService {
     private DepartmentRepository departmentRepository;
     @Autowired
     private StudentRepository studentRepository;
+    @Autowired
+    private StudentService studentService;
+    @Autowired
+    private SequenceGeneratorService sequenceGeneratorService;
 
     @Transactional
     public Admission createAdmission(Admission admission) {
@@ -33,82 +39,49 @@ public class AdmissionService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admission data is required");
         }
 
-        // Resolve student linkage from provided data
-        // (studentId/registerNumber/studentName)
-        if (admission.getStudentId() == null || admission.getStudentId().trim().isEmpty()) {
-            // Try using registerNumber first
-            if (admission.getRegisterNumber() != null && !admission.getRegisterNumber().trim().isEmpty()) {
-                studentRepository.findByRegisterNumber(admission.getRegisterNumber())
-                        .ifPresent(s -> {
-                            admission.setStudentId(s.getId());
-                            admission.setStudentName(s.getFullName());
-                            if (admission.getDepartment() == null)
-                                admission.setDepartment(s.getDepartment());
-                        });
+        // Validate duplicates
+        if (admission.getRegisterNumber() != null && !admission.getRegisterNumber().isEmpty()) {
+            if (admissionRepository.existsByRegisterNumber(admission.getRegisterNumber())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Admission with register number " + admission.getRegisterNumber() + " already exists");
             }
-            // Fallback: try fuzzy match on studentName
-            if (admission.getStudentId() == null && admission.getStudentName() != null) {
-                List<com.college.model.Student> matches = studentRepository
-                        .findByFullNameContainingIgnoreCaseOrRegisterNumberContainingIgnoreCase(
-                                admission.getStudentName(), admission.getStudentName());
-                if (!matches.isEmpty()) {
-                    com.college.model.Student s = matches.get(0);
-                    admission.setStudentId(s.getId());
-                    admission.setRegisterNumber(s.getRegisterNumber());
-                    if (admission.getDepartment() == null)
-                        admission.setDepartment(s.getDepartment());
-                }
+            if (studentRepository.existsByRegisterNumber(admission.getRegisterNumber())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Student with register number " + admission.getRegisterNumber() + " already exists");
             }
-        }
-        if (admission.getStudentId() == null || !studentRepository.existsById(admission.getStudentId())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valid Student linkage is required");
         }
 
-        // Resolve departmentId from department name if missing
-        if (admission.getDepartmentId() == null || admission.getDepartmentId().trim().isEmpty()) {
-            if (admission.getDepartment() != null && !admission.getDepartment().trim().isEmpty()) {
-                departmentRepository.findByName(admission.getDepartment())
-                        .ifPresent(d -> admission.setDepartmentId(d.getId()));
+        if (admission.getEmail() != null && !admission.getEmail().isEmpty()) {
+            if (admissionRepository.existsByEmail(admission.getEmail())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Admission with email " + admission.getEmail() + " already exists");
             }
         }
-        if (admission.getDepartmentId() == null || !departmentRepository.existsById(admission.getDepartmentId())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valid Department linkage is required");
+
+        // Validate department
+        if (admission.getDepartmentId() == null && admission.getDepartment() != null) {
+            departmentRepository.findByName(admission.getDepartment())
+                    .ifPresent(d -> admission.setDepartmentId(d.getId()));
         }
 
-        // Map UI fields to backend canonical fields
-        if (admission.getScholarshipCategory() == null && admission.getStatus() != null) {
-            // no-op here; status handled below
+        if (admission.getDepartmentId() != null) {
+            if (!departmentRepository.existsById(admission.getDepartmentId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Department not found with ID: " + admission.getDepartmentId());
+            }
+        } else if (admission.getDepartment() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Department is required");
         }
-        if (admission.getScholarshipCategory() == null && admission.getQuota() == null) {
-            // Map 'scholarship' UI value into scholarshipCategory if present in payload via
-            // model binding
-            // Admission model already has scholarshipCategory; leave as-is if provided
-        }
-        // Admission status: map UI 'status' (Pending/Approved/Rejected) to canonical
-        // (APPLIED/APPROVED/REJECTED)
+
+        // Set default status if missing
         if (admission.getAdmissionStatus() == null) {
-            String uiStatus = admission.getStatus();
-            if (uiStatus != null) {
-                switch (uiStatus) {
-                    case "Pending":
-                        admission.setAdmissionStatus("APPLIED");
-                        break;
-                    case "Approved":
-                        admission.setAdmissionStatus("APPROVED");
-                        break;
-                    case "Rejected":
-                        admission.setAdmissionStatus("REJECTED");
-                        break;
-                }
-            }
+            admission.setAdmissionStatus("APPLIED");
         }
-        if (admission.getAdmissionStatus() == null
-                || !List.of("APPLIED", "APPROVED", "REJECTED").contains(admission.getAdmissionStatus())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Valid admission status is required (APPLIED, APPROVED, REJECTED)");
+        if (admission.getStatus() == null) {
+            admission.setStatus("Pending");
         }
 
-        // Academic year default if missing: current academic year format YYYY-YYYY
+        // Set default academic year if missing
         if (admission.getAcademicYear() == null || admission.getAcademicYear().trim().isEmpty()) {
             java.time.LocalDate now = java.time.LocalDate.now();
             int start = now.getMonthValue() >= 6 ? now.getYear() : now.getYear() - 1;
@@ -116,6 +89,8 @@ public class AdmissionService {
         }
 
         admission.setCreatedAt(LocalDateTime.now());
+
+        // Save Admission - Student creation happens on Approval
         return admissionRepository.save(admission);
     }
 
@@ -129,15 +104,12 @@ public class AdmissionService {
     }
 
     public List<Admission> getAdmissionsByDepartment(String department) {
-        // Support both departmentId and name for compatibility
         if (department == null || department.trim().isEmpty()) {
             return java.util.Collections.emptyList();
         }
-        // Try as ID
         if (departmentRepository.existsById(department)) {
             return admissionRepository.findByDepartmentId(department);
         }
-        // Try as name
         return admissionRepository.findByDepartment(department);
     }
 
@@ -153,18 +125,14 @@ public class AdmissionService {
 
     @Transactional
     public Admission updateAdmission(String id, Admission admission) {
-        // Defensive null checks
         if (id == null || id.trim().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admission ID is required");
-        }
-        if (admission == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admission data is required");
         }
 
         Admission existing = admissionRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admission not found"));
 
-        // Update all allowed fields - full data persistence
+        // Update fields
         if (admission.getStudentName() != null)
             existing.setStudentName(admission.getStudentName());
         if (admission.getEmail() != null)
@@ -181,16 +149,12 @@ public class AdmissionService {
             existing.setAdmissionMethod(admission.getAdmissionMethod());
         if (admission.getQuota() != null)
             existing.setQuota(admission.getQuota());
-        if (admission.getScholarshipCategory() != null)
+        if (admission.getScholarshipCategory() != null) {
             existing.setScholarshipCategory(admission.getScholarshipCategory());
-        if (admission.getAdmissionDate() != null)
-            existing.setAdmissionDate(admission.getAdmissionDate());
-        if (admission.getDepartment() != null)
-            existing.setDepartment(admission.getDepartment());
-        if (admission.getStatus() != null)
-            existing.setStatus(admission.getStatus());
+        }
+        if (admission.getCutoff() != null)
+            existing.setCutoff(admission.getCutoff());
 
-        // Validate and update departmentId
         if (admission.getDepartmentId() != null) {
             if (!departmentRepository.existsById(admission.getDepartmentId())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Department ID does not exist");
@@ -198,55 +162,121 @@ public class AdmissionService {
             existing.setDepartmentId(admission.getDepartmentId());
         }
 
-        // Update academicYear
-        if (admission.getAcademicYear() != null)
-            existing.setAcademicYear(admission.getAcademicYear());
-
-        // Atomic status update - validate BEFORE updating
-        if (admission.getAdmissionStatus() != null) {
-            if (!List.of("APPLIED", "APPROVED", "REJECTED").contains(admission.getAdmissionStatus())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid admission status");
+        // Handle Status Change
+        if (admission.getStatus() != null) {
+            existing.setStatus(admission.getStatus());
+            // Sync internal admissionStatus
+            if ("Approved".equalsIgnoreCase(admission.getStatus())) {
+                existing.setAdmissionStatus("APPROVED");
+            } else if ("Rejected".equalsIgnoreCase(admission.getStatus())) {
+                existing.setAdmissionStatus("REJECTED");
+            } else {
+                existing.setAdmissionStatus("APPLIED");
             }
-            existing.setAdmissionStatus(admission.getAdmissionStatus());
         }
 
-        // Persist and return full data immediately
+        // Check if becoming Approved and needs Student record
+        if ("APPROVED".equalsIgnoreCase(existing.getAdmissionStatus())) {
+            // Generate Register Number if missing
+            if (existing.getRegisterNumber() == null || existing.getRegisterNumber().trim().isEmpty()) {
+                String generatedRegNo = generateRegisterNumber(existing);
+                existing.setRegisterNumber(generatedRegNo);
+            }
+
+            if (existing.getStudentId() == null) {
+                createStudentFromAdmission(existing);
+            }
+        }
+
         return admissionRepository.save(existing);
     }
 
-    @Transactional
-    public void deleteAdmission(String id) {
-        // Defensive check
-        if (id == null || id.trim().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admission ID is required");
+    private String generateRegisterNumber(Admission admission) {
+        // Format: <Year><DeptCode><Sequence>
+        // Example: 2024CSE001
+
+        // 1. Get Year (Start year of academic year)
+        String yearPrefix = "";
+        if (admission.getAcademicYear() != null && admission.getAcademicYear().contains("-")) {
+            yearPrefix = admission.getAcademicYear().split("-")[0];
+        } else {
+            yearPrefix = String.valueOf(java.time.LocalDate.now().getYear());
         }
 
-        Admission existing = admissionRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admission not found"));
+        // 2. Get Department Code
+        String deptCode = "GEN"; // Default
+        com.college.model.Department dept = departmentRepository.findById(admission.getDepartmentId())
+                .orElse(null);
 
-        if ("APPROVED".equalsIgnoreCase(existing.getAdmissionStatus())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Approved admission cannot be deleted");
+        if (dept != null) {
+            if (dept.getCode() != null && !dept.getCode().isEmpty()) {
+                deptCode = dept.getCode();
+            } else {
+                // Fallback: Generate code from name (First 3 chars upper)
+                String name = dept.getName().replaceAll("[^a-zA-Z]", "");
+                deptCode = name.length() >= 3 ? name.substring(0, 3).toUpperCase() : name.toUpperCase();
+            }
         }
 
-        admissionRepository.deleteById(id);
+        // 3. Generate Sequence
+        // Sequence name key: REG_SEQUENCE_<Year>_<DeptCode>
+        String sequenceKey = "REG_SEQUENCE_" + yearPrefix + "_" + deptCode;
+        long seq = sequenceGeneratorService.generateSequence(sequenceKey);
+
+        // 4. Format
+        return String.format("%s%s%03d", yearPrefix, deptCode, seq);
+    }
+
+    private void createStudentFromAdmission(Admission admission) {
+        // Double check duplicate before creating
+        if (admission.getRegisterNumber() != null
+                && studentRepository.existsByRegisterNumber(admission.getRegisterNumber())) {
+            // Already exists, maybe link it?
+            Student s = studentRepository.findByRegisterNumber(admission.getRegisterNumber()).get();
+            admission.setStudentId(s.getId());
+            return;
+        }
+
+        // Validate we have enough info
+        if (admission.getRegisterNumber() == null || admission.getRegisterNumber().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Cannot approve admission without Register Number");
+        }
+
+        Student newStudent = new Student();
+        newStudent.setRegisterNumber(admission.getRegisterNumber());
+        newStudent.setFullName(admission.getStudentName());
+        newStudent.setDepartment(admission.getDepartment());
+
+        // Set Defaults
+        newStudent.setYear(1);
+        newStudent.setSemester(1);
+        newStudent.setAdmissionType(
+                admission.getAdmissionMethod() != null ? admission.getAdmissionMethod() : "Management");
+        newStudent.setScholarshipCategory(admission.getScholarshipCategory());
+        newStudent.setAcademicYear(admission.getAcademicYear());
+
+        // Save Student
+        Student saved = studentService.createStudent(newStudent);
+
+        // Link back
+        admission.setStudentId(saved.getId());
     }
 
     @Transactional
     public Admission deleteAdmissionAndReturn(String id) {
-        // Defensive check
         if (id == null || id.trim().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admission ID is required");
         }
-
         Admission existing = admissionRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admission not found"));
 
         if ("APPROVED".equalsIgnoreCase(existing.getAdmissionStatus())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Approved admission cannot be deleted");
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Cannot delete approved admission. Please delete the student record first.");
         }
 
         admissionRepository.deleteById(id);
-        // Return the deleted admission for audit trail purposes
         return existing;
     }
 }

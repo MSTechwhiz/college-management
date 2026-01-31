@@ -46,6 +46,44 @@ public class Mark {
 
     private boolean locked = false;
 
+    // GPA Calculation Fields (Added)
+    private String subjectCode;
+    private int credits;
+    private double gradePoints;
+    private int semester;
+
+    public String getSubjectCode() {
+        return subjectCode;
+    }
+
+    public void setSubjectCode(String subjectCode) {
+        this.subjectCode = subjectCode;
+    }
+
+    public int getCredits() {
+        return credits;
+    }
+
+    public void setCredits(int credits) {
+        this.credits = credits;
+    }
+
+    public double getGradePoints() {
+        return gradePoints;
+    }
+
+    public void setGradePoints(double gradePoints) {
+        this.gradePoints = gradePoints;
+    }
+
+    public int getSemester() {
+        return semester;
+    }
+
+    public void setSemester(int semester) {
+        this.semester = semester;
+    }
+
     public Mark() {
     }
 

@@ -35,7 +35,8 @@ public class ReportService {
         Student student = studentRepository.findByUserId(user.getId())
                 .orElse(null);
 
-        // Fallback: Try to find student by Register Number (assuming username is register number)
+        // Fallback: Try to find student by Register Number (assuming username is
+        // register number)
         if (student == null) {
             student = studentRepository.findByRegisterNumber(username)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
@@ -142,6 +143,37 @@ public class ReportService {
         report.setResolvedBy(resolvedBy);
         report.setResolutionRemarks(remarks);
         report.setResolvedAt(LocalDateTime.now());
+        return reportRepository.save(report);
+    }
+
+    @Transactional
+    public void deleteReport(String id) {
+        if (id == null || id.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Report ID cannot be null or empty");
+        }
+        if (!reportRepository.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found");
+        }
+        reportRepository.deleteById(id);
+    }
+
+    @Transactional
+    public Report updateReportStatus(String id, String status) {
+        if (id == null || id.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Report ID cannot be null or empty");
+        }
+        if (status == null || status.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status cannot be null or empty");
+        }
+
+        Report report = reportRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found"));
+
+        report.setStatus(status);
+        if ("Resolved".equalsIgnoreCase(status) && report.getResolvedAt() == null) {
+            report.setResolvedAt(LocalDateTime.now());
+        }
+
         return reportRepository.save(report);
     }
 }

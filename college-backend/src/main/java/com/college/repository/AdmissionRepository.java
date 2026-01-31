@@ -10,7 +10,14 @@ import java.util.Optional;
 @Repository
 public interface AdmissionRepository extends MongoRepository<Admission, String> {
     List<Admission> findByDepartment(String department);
+
     List<Admission> findByDepartmentId(String departmentId);
+
     List<Admission> findByStudentId(String studentId);
+
     Optional<Admission> findByRegisterNumber(String registerNumber);
+
+    boolean existsByRegisterNumber(String registerNumber);
+
+    boolean existsByEmail(String email);
 }

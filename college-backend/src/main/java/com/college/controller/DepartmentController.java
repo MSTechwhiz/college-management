@@ -12,6 +12,7 @@ import java.util.Map;
 
 import com.college.service.AuditLogService;
 import org.springframework.security.core.Authentication;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/departments")
@@ -20,7 +21,7 @@ public class DepartmentController {
 
     @Autowired
     private DepartmentService departmentService;
-    
+
     @Autowired
     private AuditLogService auditLogService;
 
@@ -40,19 +41,36 @@ public class DepartmentController {
     public ResponseEntity<Map<String, Object>> getDepartmentDetail(@PathVariable String id) {
         return ResponseEntity.ok(departmentService.getDepartmentDetail(id));
     }
-    
+
     @PutMapping("/{id}/hod")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> assignHod(@PathVariable String id, @RequestBody Map<String, String> body, Authentication authentication) {
+    public ResponseEntity<Void> assignHod(@PathVariable String id, @RequestBody Map<String, String> body,
+            Authentication authentication) {
         String facultyId = body.get("facultyId");
         if (facultyId == null) {
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Faculty ID is required");
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Faculty ID is required");
         }
         departmentService.assignHod(id, facultyId);
-        
-        String authRole = authentication.getAuthorities().stream().findFirst().map(a -> a.getAuthority().replace("ROLE_", "")).orElse("UNKNOWN");
+
+        String authRole = authentication.getAuthorities().stream().findFirst()
+                .map(a -> a.getAuthority().replace("ROLE_", "")).orElse("UNKNOWN");
         auditLogService.log(authentication.getName(), authRole, "ASSIGN_HOD", id, "Faculty: " + facultyId);
-        
+
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Department> createDepartment(@Valid @RequestBody Department department,
+            Authentication authentication) {
+        Department created = departmentService.createDepartment(department);
+
+        String authRole = authentication.getAuthorities().stream().findFirst()
+                .map(a -> a.getAuthority().replace("ROLE_", "")).orElse("UNKNOWN");
+        auditLogService.log(authentication.getName(), authRole, "CREATE_DEPARTMENT", created.getId(),
+                "Name: " + created.getName());
+
+        return ResponseEntity.ok(created);
     }
 }

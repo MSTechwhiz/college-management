@@ -68,7 +68,7 @@ public class DataSeeder implements CommandLineRunner {
         if (!userRepository.existsByUsername("principal@sbc")) {
             User principal = new User();
             principal.setUsername("principal@sbc");
-            principal.setPassword(passwordEncoder.encode("principle@123"));
+            principal.setPassword(passwordEncoder.encode("principal@123"));
             principal.setRole("PRINCIPAL");
             principal.setActive(true);
             userRepository.save(principal);
@@ -79,8 +79,8 @@ public class DataSeeder implements CommandLineRunner {
         seedFacultyUser("faculty_it@sbc", "Faculty@123", "IT", "FAC001", "Dr. IT Faculty", null);
         seedFacultyUser("faculty_cse@sbc", "Faculty@123", "CSE", "FAC002", "Dr. CSE Faculty", null);
         seedFacultyUser("faculty_ece@sbc", "Faculty@123", "ECE", "FAC003", "Dr. ECE Faculty", null);
-        if (!userRepository.existsByUsername("faculty")) {
-            seedFacultyUser("faculty", "01/01/1999", "IT", "FACTEST", "Test Faculty", "01/01/1999");
+        if (!userRepository.existsByUsername("Faculty123")) {
+            seedFacultyUser("Faculty123", "01/01/1999", "IT", "Faculty123", "Test Faculty", "01/01/1999");
         }
     }
 
@@ -116,8 +116,8 @@ public class DataSeeder implements CommandLineRunner {
     private void seedStudents() {
         seedStudentUser("student_it_01@sbc", "Student@123", "IT", "IT001", "IT Student 01", null);
         seedStudentUser("student_cse_01@sbc", "Student@123", "CSE", "CSE001", "CSE Student 01", null);
-        if (!userRepository.existsByUsername("512122205049")) {
-            seedStudentUser("512122205049", "08/09/2004", "IT", "512122205049", "Test Student", "08/09/2004");
+        if (!userRepository.existsByUsername("512722205049")) {
+            seedStudentUser("512722205049", "08/09/2004", "IT", "512722205049", "Test Student", "08/09/2004");
         }
     }
 

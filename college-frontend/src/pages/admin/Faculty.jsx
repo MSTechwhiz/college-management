@@ -14,11 +14,11 @@ const Faculty = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
-  
+
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [submitting, setSubmitting] = useState(false)
-  
+
   const [formData, setFormData] = useState({
     facultyId: '',
     name: '',
@@ -36,7 +36,7 @@ const Faculty = () => {
       setFilteredFaculty(faculty)
     } else {
       const lowerSearch = searchTerm.toLowerCase()
-      setFilteredFaculty(faculty.filter(f => 
+      setFilteredFaculty(faculty.filter(f =>
         f.name?.toLowerCase().includes(lowerSearch) ||
         f.facultyId?.toLowerCase().includes(lowerSearch) ||
         f.department?.toLowerCase().includes(lowerSearch)
@@ -64,12 +64,12 @@ const Faculty = () => {
   }
 
   const resetForm = () => {
-    setFormData({ 
-      facultyId: '', 
-      name: '', 
-      department: departments.length > 0 ? departments[0].name : '', 
-      subjects: [], 
-      years: [] 
+    setFormData({
+      facultyId: '',
+      name: '',
+      department: departments.length > 0 ? departments[0].name : '',
+      subjects: [],
+      years: []
     })
   }
 
@@ -82,7 +82,7 @@ const Faculty = () => {
       } else {
         await api.post('/faculty', formData)
       }
-      
+
       setShowAddModal(false)
       setEditingId(null)
       fetchData()
@@ -154,7 +154,7 @@ const Faculty = () => {
             />
             <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-3 text-gray-400" />
             {searchTerm && (
-              <button 
+              <button
                 onClick={() => setSearchTerm('')}
                 className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
               >
@@ -181,7 +181,7 @@ const Faculty = () => {
                   <p className="text-sm text-red-700">{error}</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={fetchData}
                 className="text-red-700 hover:text-red-900 font-medium text-sm underline"
               >
@@ -284,17 +284,51 @@ const Faculty = () => {
                   ))}
                 </select>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subjects (comma separated)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Java, Python, Data Structures"
+                  value={formData.subjects.join(', ')}
+                  onChange={(e) => setFormData({ ...formData, subjects: e.target.value.split(',').map(s => s.trim()) })}
+                  className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Teaching Years</label>
+                <div className="flex gap-4">
+                  {['1', '2', '3', '4'].map((year) => (
+                    <label key={year} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.years.includes(year)}
+                        onChange={(e) => {
+                          const newYears = e.target.checked
+                            ? [...formData.years, year]
+                            : formData.years.filter(y => y !== year)
+                          setFormData({ ...formData, years: newYears })
+                        }}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-gray-700 font-medium">Year {year}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
               <div className="flex space-x-4 pt-4">
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={submitting}
                   className={`flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition-colors shadow-sm ${submitting ? 'opacity-70 cursor-not-allowed' : ''}`}
                 >
                   {submitting ? 'Saving...' : (editingId ? 'Update' : 'Add')}
                 </button>
-                <button 
-                  type="button" 
-                  onClick={() => setShowAddModal(false)} 
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
                   className="flex-1 bg-gray-200 text-gray-800 py-2 rounded hover:bg-gray-300 transition-colors shadow-sm"
                 >
                   Cancel
@@ -302,9 +336,9 @@ const Faculty = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div >
       )}
-    </div>
+    </div >
   )
 }
 

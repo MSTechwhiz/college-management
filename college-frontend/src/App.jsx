@@ -15,6 +15,8 @@ import Fees from './pages/admin/Fees'
 import Admissions from './pages/admin/Admissions'
 import Announcements from './pages/admin/Announcements'
 import Reports from './pages/admin/Reports'
+import AcademicManagement from './pages/admin/AcademicManagement'
+import BulkUpload from './pages/admin/BulkUpload'
 import FacultyDashboard from './pages/faculty/FacultyDashboard'
 import StudentsByYear from './pages/faculty/StudentsByYear'
 import Attendance from './pages/faculty/Attendance'
@@ -32,7 +34,7 @@ import PrincipalDashboard from './pages/principal/PrincipalDashboard'
 function App() {
   if (import.meta.env.MODE === 'production') {
     ['log', 'debug', 'warn'].forEach(k => {
-      try { console[k] = () => {}; } catch {}
+      try { console[k] = () => { }; } catch { }
     })
   }
   return (
@@ -46,7 +48,7 @@ function App() {
               <DepartmentSelect />
             </ProtectedRoute>
           } />
-          
+
           {/* Admin Routes */}
           <Route element={
             <ProtectedRoute role="ADMIN">
@@ -63,8 +65,10 @@ function App() {
             <Route path="/admin/admissions" element={<Admissions />} />
             <Route path="/admin/announcements" element={<Announcements />} />
             <Route path="/admin/reports" element={<Reports />} />
+            <Route path="/admin/academic" element={<AcademicManagement />} />
+            <Route path="/admin/bulk-upload" element={<BulkUpload />} />
           </Route>
-          
+
           {/* Faculty Routes */}
           <Route path="/faculty/dashboard" element={
             <ProtectedRoute role="FACULTY">
@@ -86,7 +90,7 @@ function App() {
               <Marks />
             </ProtectedRoute>
           } />
-          
+
           {/* Student Routes */}
           <Route path="/student/dashboard" element={
             <ProtectedRoute role="STUDENT">
@@ -118,14 +122,14 @@ function App() {
               <ReportsCreate />
             </ProtectedRoute>
           } />
-          
+
           {/* Principal Routes */}
           <Route path="/principal/dashboard" element={
             <ProtectedRoute role="PRINCIPAL">
               <PrincipalDashboard />
             </ProtectedRoute>
           } />
-          
+
           <Route path="/not-authorized" element={<NotAuthorized />} />
         </Routes>
         <ChatBot />

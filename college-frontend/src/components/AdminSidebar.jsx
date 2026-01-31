@@ -1,12 +1,13 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { 
-  faChartLine, faBuilding, faUserGraduate, faChalkboardTeacher, 
-  faUserPlus, faMoneyBillWave, faBullhorn, faClipboardList, faSignOutAlt, faTimes 
+import {
+  faChartLine, faBuilding, faUserGraduate, faChalkboardTeacher,
+  faUserPlus, faMoneyBillWave, faBullhorn, faClipboardList, faSignOutAlt, faTimes,
+  faCalendarAlt, faCloudUploadAlt
 } from '@fortawesome/free-solid-svg-icons'
 import { useAuth } from '../context/AuthContext'
 
-const AdminSidebar = ({ isOpen = false, onClose = () => {} }) => {
+const AdminSidebar = ({ isOpen = false, onClose = () => { } }) => {
   const location = useLocation()
   const navigate = useNavigate()
   const { logout } = useAuth()
@@ -17,6 +18,8 @@ const AdminSidebar = ({ isOpen = false, onClose = () => {} }) => {
 
   const menuItems = [
     { title: 'Dashboard', path: '/admin/dashboard', icon: faChartLine },
+    { title: 'Academic Management', path: '/admin/academic', icon: faCalendarAlt },
+    { title: 'Bulk Upload', path: '/admin/bulk-upload', icon: faCloudUploadAlt },
     { title: 'Departments', path: '/admin/departments', icon: faBuilding },
     { title: 'Students', path: '/admin/students', icon: faUserGraduate },
     { title: 'Faculty', path: '/admin/faculty', icon: faChalkboardTeacher },
@@ -37,7 +40,7 @@ const AdminSidebar = ({ isOpen = false, onClose = () => {} }) => {
     <>
       {/* Mobile Overlay */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-40 md:hidden"
           onClick={onClose}
         />
@@ -60,39 +63,38 @@ const AdminSidebar = ({ isOpen = false, onClose = () => {} }) => {
         </div>
 
         <nav className="flex-1 py-6 overflow-y-auto">
-        <ul className="space-y-1">
-          {menuItems.map((item) => (
-            <li key={item.path}>
-              <Link
-                to={item.path}
-                className={`flex items-center gap-3 px-6 py-3 transition-colors duration-200 ${
-                  isActive(item.path)
-                    ? 'bg-blue-600 text-white border-r-4 border-blue-400'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <div className="w-6 text-center">
-                  <FontAwesomeIcon icon={item.icon} className={isActive(item.path) ? 'text-white' : 'text-slate-500'} />
-                </div>
-                <span className="font-medium">{item.title}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
+          <ul className="space-y-1">
+            {menuItems.map((item) => (
+              <li key={item.path}>
+                <Link
+                  to={item.path}
+                  className={`flex items-center gap-3 px-6 py-3 transition-colors duration-200 ${isActive(item.path)
+                      ? 'bg-blue-600 text-white border-r-4 border-blue-400'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                    }`}
+                >
+                  <div className="w-6 text-center">
+                    <FontAwesomeIcon icon={item.icon} className={isActive(item.path) ? 'text-white' : 'text-slate-500'} />
+                  </div>
+                  <span className="font-medium">{item.title}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
 
-      <div className="p-4 border-t border-slate-700">
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-4 py-3 text-red-400 hover:bg-red-900/20 hover:text-red-300 rounded-lg transition-colors"
-        >
-          <div className="w-6 text-center">
-             <FontAwesomeIcon icon={faSignOutAlt} />
-          </div>
-          <span className="font-medium">Logout</span>
-        </button>
+        <div className="p-4 border-t border-slate-700">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 w-full px-4 py-3 text-red-400 hover:bg-red-900/20 hover:text-red-300 rounded-lg transition-colors"
+          >
+            <div className="w-6 text-center">
+              <FontAwesomeIcon icon={faSignOutAlt} />
+            </div>
+            <span className="font-medium">Logout</span>
+          </button>
+        </div>
       </div>
-    </div>
     </>
   )
 }

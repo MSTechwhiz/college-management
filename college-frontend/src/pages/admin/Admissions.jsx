@@ -15,13 +15,14 @@ const Admissions = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
-  
+
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [submitting, setSubmitting] = useState(false)
-  
+
   const [formData, setFormData] = useState({
     studentName: '',
+    registerNumber: '',
     department: '',
     admissionMethod: 'COUNSELLING',
     cutoff: '',
@@ -42,8 +43,9 @@ const Admissions = () => {
       setFilteredAdmissions(admissions)
     } else {
       const lowerSearch = searchTerm.toLowerCase()
-      setFilteredAdmissions(admissions.filter(a => 
+      setFilteredAdmissions(admissions.filter(a =>
         a.studentName?.toLowerCase().includes(lowerSearch) ||
+        a.registerNumber?.toLowerCase().includes(lowerSearch) ||
         a.department?.toLowerCase().includes(lowerSearch) ||
         a.admissionMethod?.toLowerCase().includes(lowerSearch)
       ))
@@ -53,18 +55,25 @@ const Admissions = () => {
   const fetchData = async () => {
     setLoading(true)
     setError(null)
+
+    // Fetch departments independently so dropdown works even if admissions fail
     try {
-      const [admissionsRes, statisticsRes, departmentsRes] = await Promise.all([
+      const departmentsRes = await api.get('/departments')
+      setDepartments(departmentsRes.data || [])
+    } catch (deptError) {
+      console.error('Error fetching departments:', deptError)
+    }
+
+    try {
+      const [admissionsRes, statisticsRes] = await Promise.all([
         api.get('/admissions'),
-        api.get('/admissions/statistics'),
-        api.get('/departments')
+        api.get('/admissions/statistics')
       ])
       setAdmissions(admissionsRes.data || [])
       setFilteredAdmissions(admissionsRes.data || [])
       setStatistics(statisticsRes.data || {})
-      setDepartments(departmentsRes.data || [])
     } catch (error) {
-      console.error('Error fetching data:', error)
+      console.error('Error fetching admissions data:', error)
       setError('Failed to load admissions data.')
     } finally {
       setLoading(false)
@@ -82,6 +91,7 @@ const Admissions = () => {
     try {
       const payload = {
         studentName: formData.studentName,
+        registerNumber: formData.registerNumber,
         departmentId: formData.departmentId || null,
         admissionMethod: formData.admissionMethod,
         cutoff: formData.cutoff ? Number(formData.cutoff) : null,
@@ -113,20 +123,32 @@ const Admissions = () => {
   const resetForm = () => {
     setFormData({
       studentName: '',
+      registerNumber: '',
       departmentId: '',
       admissionMethod: 'COUNSELLING',
       cutoff: '',
-      scholarship: 'FG'
+      scholarship: 'FG',
+      email: '',
+      phone: '',
+      status: 'Pending',
+      tenthMarks: '',
+      twelfthMarks: ''
     })
   }
 
   const handleEdit = (admission) => {
     setFormData({
       studentName: admission.studentName,
+      registerNumber: admission.registerNumber || '',
       departmentId: admission.departmentId,
       admissionMethod: admission.admissionMethod,
       cutoff: admission.cutoff,
-      scholarship: admission.scholarship
+      scholarship: admission.scholarship,
+      email: admission.email || '',
+      phone: admission.phone || '',
+      status: admission.status,
+      tenthMarks: admission.tenthMarks || '',
+      twelfthMarks: admission.twelfthMarks || ''
     })
     setEditingId(admission.id)
     setShowAddModal(true)
@@ -197,7 +219,7 @@ const Admissions = () => {
                 />
                 <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-3 text-gray-400" />
                 {searchTerm && (
-                  <button 
+                  <button
                     onClick={() => setSearchTerm('')}
                     className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
                   >
@@ -263,22 +285,70 @@ const Admissions = () => {
           <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full transform transition-all">
             <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">{editingId ? 'Edit Admission' : 'Add Admission'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Student Name / Register No</label>
-                <input
-                  type="text"
-                  placeholder="e.g. John Doe / REG123"
-                  value={formData.studentName}
-                  onChange={(e) => setFormData({ ...formData, studentName: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Student Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. John Doe"
+                    value={formData.studentName}
+                    onChange={(e) => setFormData({ ...formData, studentName: e.target.value })}
+                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Register Number</label>
+                  <input
+                    type="text"
+                    placeholder="Auto-generated if empty"
+                    value={formData.registerNumber || ''}
+                    onChange={(e) => setFormData({ ...formData, registerNumber: e.target.value })}
+                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                  />
+                </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. student@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                  <input
+                    type="tel"
+                    placeholder="e.g. 9876543210"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    required
+                    pattern="[0-9]{10}"
+                    title="10 digit mobile number"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
                 <select
                   value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  onChange={(e) => {
+                    const selectedName = e.target.value
+                    const selectedDept = departments.find(d => d.name === selectedName)
+                    setFormData({
+                      ...formData,
+                      department: selectedName,
+                      departmentId: selectedDept ? selectedDept.id : ''
+                    })
+                  }}
                   className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                   required
                 >
@@ -301,26 +371,26 @@ const Admissions = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">10th Marks</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 450/500"
-                      value={formData.tenthMarks}
-                      onChange={(e) => setFormData({ ...formData, tenthMarks: e.target.value })}
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                    />
-                 </div>
-                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">12th Marks</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 550/600"
-                      value={formData.twelfthMarks}
-                      onChange={(e) => setFormData({ ...formData, twelfthMarks: e.target.value })}
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                    />
-                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">10th Marks</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 450/500"
+                    value={formData.tenthMarks}
+                    onChange={(e) => setFormData({ ...formData, tenthMarks: e.target.value })}
+                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">12th Marks</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 550/600"
+                    value={formData.twelfthMarks}
+                    onChange={(e) => setFormData({ ...formData, twelfthMarks: e.target.value })}
+                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -364,16 +434,16 @@ const Admissions = () => {
                 </select>
               </div>
               <div className="flex space-x-4 pt-4">
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={submitting}
                   className={`flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition-colors shadow-sm ${submitting ? 'opacity-70 cursor-not-allowed' : ''}`}
                 >
                   {submitting ? 'Saving...' : (editingId ? 'Update' : 'Add')}
                 </button>
-                <button 
-                  type="button" 
-                  onClick={() => setShowAddModal(false)} 
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
                   className="flex-1 bg-gray-200 text-gray-800 py-2 rounded hover:bg-gray-300 transition-colors shadow-sm"
                 >
                   Cancel

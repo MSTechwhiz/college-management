@@ -22,6 +22,9 @@ public class Department {
     @Size(max = 100, message = "HOD name cannot exceed 100 characters")
     private String hodName;
 
+    @Size(min = 2, max = 10, message = "Department code must be between 2 and 10 characters")
+    private String code; // e.g., CSE, ECE
+
     private boolean isActive = true;
 
     public Department() {
@@ -62,6 +65,14 @@ public class Department {
 
     public void setHodName(String hodName) {
         this.hodName = hodName;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code != null ? code.toUpperCase() : null;
     }
 
     public boolean isActive() {
